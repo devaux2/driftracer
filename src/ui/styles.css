@@ -149,6 +149,105 @@ body,
 .menu {
   background: radial-gradient(circle at 50% 30%, #11142b 0%, #05060f 70%);
 }
+
+/* game-mode list (main screen) */
+.mode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: min(440px, 92vw);
+  margin: 0 auto;
+}
+.mode-card {
+  position: relative;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.7rem 1.1rem;
+  background: rgba(18, 22, 44, 0.7);
+  border: 1px solid rgba(120, 200, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+.mode-card.primary {
+  border-color: var(--accent);
+  background: rgba(22, 224, 255, 0.1);
+  box-shadow: 0 0 18px rgba(22, 224, 255, 0.3);
+}
+.mode-card.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.mode-name {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+}
+.mode-desc {
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+.mode-soon {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.8rem;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  color: var(--accent-2);
+  border: 1px solid var(--accent-2);
+  padding: 0.1rem 0.4rem;
+}
+.garage-btn {
+  width: min(440px, 92vw);
+  margin: 0.4rem auto 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 1.1rem;
+  background: rgba(10, 12, 26, 0.6);
+  border: 1px solid rgba(120, 200, 255, 0.25);
+  color: #fff;
+  cursor: pointer;
+  clip-path: var(--chamfer);
+  font-family: var(--font-display);
+  letter-spacing: 0.12em;
+}
+.garage-label {
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+.garage-ship {
+  font-weight: 700;
+  font-style: italic;
+}
+.garage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.garage-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+}
+.back-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-family: var(--font-display);
+  letter-spacing: 0.1em;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+}
 .menu-inner {
   width: min(720px, 92vw);
   text-align: center;

@@ -62,7 +62,7 @@ export class Game {
     this.minimap = new Minimap(this.container, this.track);
     this.minimap.show(false);
 
-    this.menu = new Menu(this.container, this.input.isTouchDevice, (ship, useGyro) =>
+    this.menu = new Menu(this.container, this.input.isTouchDevice, (ship, _mode, useGyro) =>
       this.startRace(ship, useGyro)
     );
     this.menu.show(false); // hidden until PLAY is clicked on the title screen
