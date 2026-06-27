@@ -22,10 +22,10 @@ const WALL_RESTITUTION = 0.3;
 const STEER_EASE = 8;
 /** How quickly the drift state blends in/out (grip, rotation, slip). */
 const DRIFT_EASE = 6;
-/** Seconds of held drift to ramp from the starting sharpness up to the max. */
-const DRIFT_RAMP_TIME = 1.3;
+/** Seconds of held drift to ramp from 0% up to the max drift turn. */
+const DRIFT_RAMP_TIME = 2.0;
 /** Drift turn sharpness at the very start of a drift (fraction of max). */
-const DRIFT_SHARP_MIN = 0.4;
+const DRIFT_SHARP_MIN = 0;
 /** Seconds to bleed off drift sharpness after releasing, so each drift earns it. */
 const DRIFT_SHARP_DECAY = 0.4;
 /** How quickly the visual slip/yaw kick eases in/out. */
