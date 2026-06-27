@@ -44,7 +44,7 @@ export const TRACKS: TrackSpec[] = [
     name: "Neon Circuit",
     // Wide road (Wipeout/F-Zero scale) so high speed reads well and turns
     // aren't claustrophobic.
-    roadHalfWidth: 26,
+    roadHalfWidth: 52,
     // A big, fast stadium loop built for speed:
     //  - a very long start straight (x=0, +Z) to wind it out, with a CHASM
     //    shortcut partway: the road bulges right around a ~150u gap and the ramp
@@ -54,31 +54,32 @@ export const TRACKS: TrackSpec[] = [
     //  - sweeping, large-radius turns at each end (no brutal hairpins).
     //  - a HILL (Y up to 10) on the top sweeper and a VALLEY (Y −4) on the long
     //    back straight for verticality.
+    // 2x scale of the original layout (footprint + elevation all doubled).
     points: [
-      [0, 0, -450], // 0  start / finish, heading +Z (long main straight)
-      [0, 0, -180], // 1
-      [0, 5, 80], // 2  road rises into the launch lip
-      [0, 7, 200], // 3  RAMP lip — chasm ahead (x=0, z 200..350)
-      [140, 3, 250], // 4  main road bulges right around the chasm...
-      [200, 0, 300], // 5  bulge apex (far right)
-      [120, 3, 340], // 6
-      [0, 7, 350], // 7  ...rejoins the +Z line past the ~150u gap (landing zone)
-      [0, 3, 480], // 8  main straight continues (overshoot lands safely here)
-      [0, 0, 640], // 9  top of the main straight
-      [90, 3, 740], // 10 sweeping right turn begins, climbing
-      [240, 8, 800], // 11 hill climb
-      [410, 10, 780], // 12 hill crest (highest point)
-      [520, 7, 670], // 13 descend
-      [560, 3, 520], // 14 now heading -Z onto the back straight
-      [560, 0, 360], // 15 long back straight
-      [560, -4, 140], // 16 valley dip (lowest point)
-      [560, 0, -100], // 17
-      [550, 0, -280], // 18
-      [500, 2, -420], // 19 sweeping left turn back toward start
-      [370, 4, -520], // 20
-      [200, 2, -560], // 21
-      [60, 0, -540], // 22
-      [0, 0, -500], // 23 straighten onto x=0 before the start line
+      [0, 0, -900], // 0  start / finish, heading +Z (long main straight)
+      [0, 0, -360], // 1
+      [0, 10, 160], // 2  road rises into the launch lip
+      [0, 14, 400], // 3  RAMP lip — chasm ahead (x=0, z 400..700)
+      [280, 6, 500], // 4  main road bulges right around the chasm...
+      [400, 0, 600], // 5  bulge apex (far right)
+      [240, 6, 680], // 6
+      [0, 14, 700], // 7  ...rejoins the +Z line past the ~300u gap (landing zone)
+      [0, 6, 960], // 8  main straight continues (overshoot lands safely here)
+      [0, 0, 1280], // 9  top of the main straight
+      [180, 6, 1480], // 10 sweeping right turn begins, climbing
+      [480, 16, 1600], // 11 hill climb
+      [820, 20, 1560], // 12 hill crest (highest point)
+      [1040, 14, 1340], // 13 descend
+      [1120, 6, 1040], // 14 now heading -Z onto the back straight
+      [1120, 0, 720], // 15 long back straight
+      [1120, -8, 280], // 16 valley dip (lowest point)
+      [1120, 0, -200], // 17
+      [1100, 0, -560], // 18
+      [1000, 4, -840], // 19 sweeping left turn back toward start
+      [740, 8, -1040], // 20
+      [400, 4, -1120], // 21
+      [120, 0, -1080], // 22
+      [0, 0, -1000], // 23 straighten onto x=0 before the start line
     ],
     // NOTE: pad `t` values are calibrated to the actual arc of this spline
     // (Catmull-Rom samples aren't evenly spaced), verified against the
