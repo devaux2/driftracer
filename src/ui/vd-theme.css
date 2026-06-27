@@ -763,9 +763,10 @@
   gap: 0.6vh;
   overflow: hidden;
 }
-.vd-card .vd-ship {
-  width: 78%;
-  transform: rotate(-6deg);
+.vd-card .vd-emblem {
+  width: 42%;
+  margin: 0.6vh 0;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
 }
 .vd-card-name {
   font-weight: 700;
