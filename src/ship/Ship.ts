@@ -22,6 +22,12 @@ const WALL_RESTITUTION = 0.3;
 const STEER_EASE = 8;
 /** How quickly the drift state blends in/out (grip, rotation, slip). */
 const DRIFT_EASE = 6;
+/** Seconds of held drift to ramp from the starting sharpness up to the max. */
+const DRIFT_RAMP_TIME = 1.3;
+/** Drift turn sharpness at the very start of a drift (fraction of max). */
+const DRIFT_SHARP_MIN = 0.4;
+/** Seconds to bleed off drift sharpness after releasing, so each drift earns it. */
+const DRIFT_SHARP_DECAY = 0.4;
 /** How quickly the visual slip/yaw kick eases in/out. */
 const SLIP_EASE = 7;
 /** How far below the road surface counts as "fallen off" → respawn. */
@@ -53,6 +59,9 @@ export class Ship {
   /** Eased 0..1 drift blend, so traction/rotation/slip transition smoothly.
    * Public so the camera can lean with it smoothly instead of snapping. */
   driftAmount = 0;
+  /** 0..1 skill ramp — climbs while a drift is held, so longer drifts turn
+   * sharper (up to the ship's max drift turn). */
+  private driftSharp = 0;
   /** Visual slip (yaw kick) of the hull during a drift, smoothed. */
   private slip = 0;
   /** Visual bank/roll, smoothed. */
@@ -121,6 +130,7 @@ export class Ship {
     this.speed = 0;
     this.steerInput = 0;
     this.driftAmount = 0;
+    this.driftSharp = 0;
     this.slip = 0;
     this.bank = 0;
     this.lap = 0;
@@ -155,11 +165,16 @@ export class Ship {
     // Blend the drift state in/out so grip and rotation ramp rather than snap.
     this.driftAmount += ((wantDrift ? 1 : 0) - this.driftAmount) * Math.min(1, DRIFT_EASE * dt);
 
+    // Skill ramp: hold a drift longer and it sharpens toward the ship's max.
+    if (wantDrift) this.driftSharp = Math.min(1, this.driftSharp + dt / DRIFT_RAMP_TIME);
+    else this.driftSharp = Math.max(0, this.driftSharp - dt / DRIFT_SHARP_DECAY);
+    const sharp = DRIFT_SHARP_MIN + (1 - DRIFT_SHARP_MIN) * this.driftSharp;
+
     // --- steering (yaw) ---
-    // Turn authority scales up a touch with speed so it feels planted, and
-    // gains a multiplier as the drift blends in for that tail-out rotation.
+    // Turn authority scales up a touch with speed so it feels planted, and gains
+    // a multiplier as the drift blends in and sharpens with how long it's held.
     const speedFactor = Math.min(1, 0.4 + speed / this.stats.maxSpeed);
-    const turnMul = 1 + (this.stats.driftTurnMultiplier - 1) * this.driftAmount;
+    const turnMul = 1 + (this.stats.driftTurnMultiplier - 1) * this.driftAmount * sharp;
     const yawRate = steer * this.stats.turnRate * speedFactor * turnMul;
     this.yaw += yawRate * dt;
 
@@ -176,12 +191,10 @@ export class Ship {
     if (this.airborne) thrust *= 0.15;
     if (vF < targetSpeed) vF = Math.min(targetSpeed, vF + thrust * dt);
 
-    // Air-brake scrubs forward speed. While drifting it bites far less — the
-    // drift is what lets you carry speed through a corner instead of braking
-    // straight, so it should feel like a reward, not a stop.
-    if (braking && !boosting) {
-      const bite = this.drifting ? 0.4 : 1;
-      vF = Math.max(0, vF - this.stats.brakeForce * ctrl.brake * bite * dt);
+    // The air-brake scrubs speed only when braking straight. Drifting carries
+    // full speed through the corner — no slowdown.
+    if (braking && !boosting && !this.drifting) {
+      vF = Math.max(0, vF - this.stats.brakeForce * ctrl.brake * dt);
     }
 
     // Forward drag.
