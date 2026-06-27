@@ -1,5 +1,6 @@
 import { SHIPS, getShipById, type ShipSpec } from "../config/ships";
 import { logoMark, ICONS, shipArt } from "./marks";
+import { ShipPreview } from "./ShipPreview";
 
 type Screen = "main" | "garage";
 
@@ -26,12 +27,19 @@ function hex(c: ShipSpec): string {
 
 /**
  * VECTOR DRIFT front-end. Two screens:
- *  - main: a vertical list of game modes + a hero ship.
- *  - garage: ship roster carousel + stat readout.
- * The chosen ship + control prefs persist across screens.
+ *  - main: a vertical list of game modes + a 3D hero ship.
+ *  - garage: ship roster carousel + stat readout + 3D ship on a neon stage.
+ * The chosen ship + control prefs persist across screens. A persistent preview
+ * canvas (its own little Babylon view) is overlaid on the hero region of
+ * whichever screen is up, so re-rendering the DOM never tears down the 3D view.
  */
 export class Menu {
   private root: HTMLDivElement;
+  private content: HTMLDivElement;
+  private stage: HTMLDivElement;
+  private canvas: HTMLCanvasElement;
+  private preview: ShipPreview;
+
   private screen: Screen = "main";
   private selectedShipId = SHIPS[0].id;
   private selectedMode = "quick";
@@ -44,16 +52,49 @@ export class Menu {
   ) {
     this.root = document.createElement("div");
     this.root.className = "vd-menu overlay";
+
+    this.stage = document.createElement("div");
+    this.stage.className = "vd-stage";
+    this.canvas = document.createElement("canvas");
+    this.canvas.className = "vd-preview";
+    this.stage.appendChild(this.canvas);
+
+    this.content = document.createElement("div");
+    this.content.className = "vd-content";
+
+    this.root.append(this.stage, this.content);
     container.appendChild(this.root);
+
+    this.preview = new ShipPreview(this.canvas);
+    window.addEventListener("resize", () => this.positionPreview());
+
     this.render();
   }
 
   private render(): void {
     if (this.screen === "main") this.renderMain();
     else this.renderGarage();
+    this.preview.setShip(getShipById(this.selectedShipId));
+    this.positionPreview();
   }
 
-  // ---- shared chrome -------------------------------------------------------
+  /** Overlay the preview canvas exactly on the current screen's hero element. */
+  private positionPreview(): void {
+    const sel = this.screen === "main" ? ".vd-hero" : ".vd-garage-hero";
+    const hero = this.content.querySelector(sel) as HTMLElement | null;
+    if (!hero || this.root.style.display === "none") {
+      this.canvas.style.display = "none";
+      return;
+    }
+    const r = hero.getBoundingClientRect();
+    const base = this.root.getBoundingClientRect();
+    this.canvas.style.display = "";
+    this.canvas.style.left = `${r.left - base.left}px`;
+    this.canvas.style.top = `${r.top - base.top}px`;
+    this.canvas.style.width = `${r.width}px`;
+    this.canvas.style.height = `${r.height}px`;
+    this.preview.resize();
+  }
 
   private plusMarks(): string {
     return `
@@ -67,7 +108,6 @@ export class Menu {
 
   private renderMain(): void {
     this.root.className = "vd-menu overlay vd-screen-main";
-    const ship = getShipById(this.selectedShipId);
 
     const modes = MODES.map((m) => {
       const sel = m.id === this.selectedMode && m.playable;
@@ -82,7 +122,7 @@ export class Menu {
       </button>`;
     }).join("");
 
-    this.root.innerHTML = `
+    this.content.innerHTML = `
       <div class="vd-shell">
         <span class="vd-side-label" style="top:30vh;left:0.8vh">ENTER MENU</span>
         <span class="vd-side-label" style="top:34vh;right:0.8vh">VECTOR DRIFT SYSTEM</span>
@@ -112,7 +152,7 @@ export class Menu {
             <div class="vd-modes-bracket"></div>
             ${modes}
           </nav>
-          <div class="vd-hero">${shipArt(hex(ship))}</div>
+          <div class="vd-hero"></div>
         </div>
 
         <footer class="vd-botbar">
@@ -124,16 +164,15 @@ export class Menu {
         </footer>
       </div>`;
 
-    this.root.querySelectorAll<HTMLButtonElement>(".vd-mode").forEach((btn) => {
+    this.content.querySelectorAll<HTMLButtonElement>(".vd-mode").forEach((btn) => {
       btn.addEventListener("click", () => this.pickMode(btn.dataset.mode!));
     });
-    // SELECT confirms the currently highlighted mode.
-    this.root
+    this.content
       .querySelector<HTMLButtonElement>(".select-act")!
       .addEventListener("click", () => this.confirmMode(this.selectedMode));
-    this.root.querySelector<HTMLButtonElement>(".vd-gyro")?.addEventListener("click", () => {
+    this.content.querySelector<HTMLButtonElement>(".vd-gyro")?.addEventListener("click", () => {
       this.useGyro = !this.useGyro;
-      this.renderMain();
+      this.render();
     });
   }
 
@@ -148,7 +187,7 @@ export class Menu {
     if (this.selectedMode === id) this.confirmMode(id);
     else {
       this.selectedMode = id;
-      this.renderMain();
+      this.render();
     }
   }
 
@@ -185,7 +224,7 @@ export class Menu {
       </button>`
     ).join("");
 
-    this.root.innerHTML = `
+    this.content.innerHTML = `
       <div class="vd-shell">
         ${this.plusMarks()}
 
@@ -220,7 +259,6 @@ export class Menu {
 
           <div class="vd-garage-hero">
             <div class="vd-ring"></div>
-            ${shipArt(hex(ship))}
           </div>
 
           <div class="vd-sidenav">
@@ -243,23 +281,23 @@ export class Menu {
         </footer>
       </div>`;
 
-    this.root.querySelectorAll<HTMLButtonElement>(".vd-card").forEach((btn) => {
+    this.content.querySelectorAll<HTMLButtonElement>(".vd-card").forEach((btn) => {
       btn.addEventListener("click", () => {
         this.selectedShipId = btn.dataset.id!;
-        this.renderGarage();
+        this.render();
       });
     });
-    this.root.querySelector<HTMLButtonElement>(".prev")!.addEventListener("click", () => this.cycle(-1));
-    this.root.querySelector<HTMLButtonElement>(".next")!.addEventListener("click", () => this.cycle(1));
-    this.root.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
-    this.root.querySelector<HTMLButtonElement>(".select-act")!.addEventListener("click", () => this.goto("main"));
+    this.content.querySelector<HTMLButtonElement>(".prev")!.addEventListener("click", () => this.cycle(-1));
+    this.content.querySelector<HTMLButtonElement>(".next")!.addEventListener("click", () => this.cycle(1));
+    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
+    this.content.querySelector<HTMLButtonElement>(".select-act")!.addEventListener("click", () => this.goto("main"));
   }
 
   private cycle(dir: number): void {
     const idx = SHIPS.findIndex((s) => s.id === this.selectedShipId);
     const next = (idx + dir + SHIPS.length) % SHIPS.length;
     this.selectedShipId = SHIPS[next].id;
-    this.renderGarage();
+    this.render();
   }
 
   private goto(screen: Screen): void {
@@ -270,6 +308,7 @@ export class Menu {
   show(v: boolean): void {
     if (v) this.screen = "main";
     this.root.style.display = v ? "" : "none";
+    this.preview.setActive(v);
     if (v) this.render();
   }
 }

@@ -274,6 +274,24 @@
   align-items: stretch;
   justify-content: stretch;
 }
+/* persistent 3D ship preview, overlaid on the hero region (positioned in JS) */
+.vd-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.vd-preview {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+.vd-content {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+}
 .vd-shell {
   position: relative;
   flex: 1;
@@ -756,4 +774,86 @@
   .vd-statcard {
     padding: 1.4vh 1.6vh;
   }
+}
+
+/* ============================================================================
+   In-race HUD / countdown / results — re-themed to VECTOR DRIFT
+   (pink primary, lime accents, Chakra Petch). Layout is inherited from
+   styles.css; these rules only restyle colour + type.
+   ============================================================================ */
+.hud,
+.results,
+.countdown {
+  font-family: var(--vd-display);
+}
+.hud-panel {
+  background: linear-gradient(135deg, rgba(12, 12, 16, 0.62), rgba(6, 6, 9, 0.42));
+  border: 1px solid rgba(255, 30, 90, 0.28);
+}
+.hud .pos-num {
+  color: var(--vd-pink);
+  text-shadow: 0 0 16px rgba(255, 30, 90, 0.75);
+}
+.hud .lap-num {
+  color: var(--vd-lime);
+  text-shadow: 0 0 14px rgba(215, 255, 55, 0.7);
+}
+.hud .speed-readout .kph {
+  color: #fff;
+  text-shadow: 0 0 20px rgba(255, 30, 90, 0.7);
+}
+.hud .speed-fill {
+  background: linear-gradient(90deg, var(--vd-pink) 0%, var(--vd-lime) 88%, #fff 100%);
+  box-shadow: 0 0 12px rgba(255, 30, 90, 0.6);
+}
+.hud .ind.drift.active {
+  background: var(--vd-pink);
+  border-color: var(--vd-pink);
+  box-shadow: 0 0 16px var(--vd-pink);
+  color: #fff;
+}
+.hud .ind.boost.active {
+  background: var(--vd-lime);
+  border-color: var(--vd-lime);
+  box-shadow: 0 0 16px var(--vd-lime);
+  color: #0a0a0c;
+}
+
+.countdown {
+  text-shadow: 0 0 24px var(--vd-pink), 0 0 64px var(--vd-pink), 0 0 130px rgba(215, 255, 55, 0.5);
+}
+.countdown.go {
+  color: var(--vd-lime);
+  text-shadow: 0 0 28px var(--vd-lime), 0 0 80px var(--vd-lime), 0 0 150px rgba(255, 30, 90, 0.5);
+}
+
+.results {
+  background: radial-gradient(circle at 50% 35%, rgba(20, 20, 26, 0.95) 0%, rgba(7, 7, 11, 0.97) 75%);
+}
+.results-title {
+  color: #fff;
+  text-shadow: 0 0 8px var(--vd-pink), 0 0 30px rgba(255, 30, 90, 0.6);
+}
+.results-sub {
+  color: var(--vd-pink);
+  opacity: 0.85;
+}
+.result-row {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 13, 18, 0.7);
+}
+.result-row.hot {
+  border-color: var(--vd-lime);
+  box-shadow: 0 0 18px rgba(215, 255, 55, 0.3);
+}
+.result-value {
+  color: #fff;
+}
+.results .start-btn {
+  background: linear-gradient(100deg, var(--vd-pink), var(--vd-pink-deep));
+  color: #fff;
+  font-family: var(--vd-display);
+}
+.results .back-btn {
+  font-family: var(--vd-display);
 }
