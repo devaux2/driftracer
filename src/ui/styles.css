@@ -1,0 +1,336 @@
+:root {
+  --accent: #16e0ff;
+  --accent-2: #ff3da6;
+  --boost: #ffd23d;
+  --bg: #05060f;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: #fff;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+
+#renderCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  outline: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.speedlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ---- rotate prompt ---- */
+#rotate-prompt {
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--bg);
+  z-index: 50;
+}
+.rotate-icon {
+  font-size: 4rem;
+  animation: spin 2s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- menu ---- */
+.menu {
+  background: radial-gradient(circle at 50% 30%, #11142b 0%, #05060f 70%);
+}
+.menu-inner {
+  width: min(720px, 92vw);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+.logo {
+  font-size: clamp(2rem, 8vw, 4rem);
+  letter-spacing: 0.3em;
+  font-weight: 800;
+}
+.logo span {
+  color: var(--accent);
+}
+.ship-roster {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ship-card {
+  background: #161a33;
+  border: 2px solid #2a3157;
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.ship-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px rgba(22, 224, 255, 0.4);
+}
+.ship-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.ship-detail {
+  background: #0d1024aa;
+  border: 1px solid #2a3157;
+  border-radius: 12px;
+  padding: 1rem;
+}
+.ship-detail h2 {
+  color: var(--accent);
+}
+.blurb {
+  opacity: 0.7;
+  font-size: 0.9rem;
+  margin-bottom: 0.6rem;
+}
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.3rem 0;
+  font-size: 0.8rem;
+}
+.stat span {
+  width: 90px;
+  text-align: right;
+  opacity: 0.8;
+}
+.stat .bar {
+  flex: 1;
+  height: 8px;
+  background: #222845;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.stat .bar div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+.gyro-toggle {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+}
+.start-btn {
+  margin-top: 0.4rem;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border: none;
+  color: #05060f;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  font-size: 1.3rem;
+  padding: 0.8rem 2rem;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.controls-hint {
+  font-size: 0.78rem;
+  opacity: 0.6;
+}
+
+/* ---- HUD ---- */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  font-variant-numeric: tabular-nums;
+}
+.hud-top-left {
+  position: absolute;
+  top: max(1rem, env(safe-area-inset-top));
+  left: max(1rem, env(safe-area-inset-left));
+}
+.hud-lap {
+  font-size: 1.1rem;
+  letter-spacing: 0.15em;
+  opacity: 0.9;
+}
+.hud-lap .lap-num {
+  color: var(--accent);
+  font-weight: 800;
+}
+.hud-time {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+.hud-best {
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+.hud-bottom-right {
+  position: absolute;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  right: max(1.2rem, env(safe-area-inset-right));
+  text-align: right;
+}
+.hud-speed {
+  line-height: 1;
+}
+.hud-speed .kph {
+  font-size: 3.4rem;
+  font-weight: 800;
+  text-shadow: 0 0 18px rgba(22, 224, 255, 0.5);
+}
+.hud-speed .unit {
+  font-size: 1rem;
+  opacity: 0.7;
+  margin-left: 0.3rem;
+}
+.speed-bar {
+  width: 240px;
+  max-width: 40vw;
+  height: 10px;
+  background: #1a1f3a;
+  border-radius: 5px;
+  margin-top: 0.4rem;
+  margin-left: auto;
+  overflow: hidden;
+}
+.speed-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--boost));
+  transition: width 0.08s linear;
+}
+.hud-indicators {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-bottom: 0.4rem;
+}
+.ind {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  background: #1a1f3a;
+  opacity: 0.35;
+}
+.ind.drift.active {
+  opacity: 1;
+  background: var(--accent-2);
+  box-shadow: 0 0 16px var(--accent-2);
+}
+.ind.boost.active {
+  opacity: 1;
+  background: var(--boost);
+  color: #05060f;
+  box-shadow: 0 0 16px var(--boost);
+}
+
+/* ---- touch controls ---- */
+.touch-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+}
+.touch-pad {
+  position: absolute;
+  pointer-events: auto;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  border-radius: 16px;
+  backdrop-filter: blur(2px);
+  touch-action: none;
+}
+.touch-pad.pressed {
+  background: rgba(22, 224, 255, 0.25);
+  border-color: var(--accent);
+}
+.steer-pad {
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  width: 22vw;
+  height: 40vh;
+  font-size: 2.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.steer-pad.left {
+  left: max(1rem, env(safe-area-inset-left));
+}
+.steer-pad.right {
+  left: calc(22vw + 2rem);
+}
+.action-btn {
+  right: max(1.2rem, env(safe-area-inset-right));
+  width: 30vw;
+  max-width: 220px;
+}
+.action-btn.brake {
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  height: 26vh;
+  font-size: 1.6rem;
+  border-color: rgba(255, 61, 166, 0.6);
+}
+.action-btn.brake.pressed {
+  background: rgba(255, 61, 166, 0.3);
+  border-color: var(--accent-2);
+}
+.action-btn.boost {
+  bottom: calc(26vh + 1.4rem);
+  height: 12vh;
+  font-size: 1.2rem;
+  border-color: rgba(255, 210, 61, 0.6);
+}
+.action-btn.boost.pressed {
+  background: rgba(255, 210, 61, 0.3);
+  border-color: var(--boost);
+}
