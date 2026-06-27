@@ -50,8 +50,9 @@ export class Ship {
   respawnFlash = 0;
   /** Eased steer input (-1..1) — the actual value the physics steers with. */
   private steerInput = 0;
-  /** Eased 0..1 drift blend, so traction/rotation/slip transition smoothly. */
-  private driftAmount = 0;
+  /** Eased 0..1 drift blend, so traction/rotation/slip transition smoothly.
+   * Public so the camera can lean with it smoothly instead of snapping. */
+  driftAmount = 0;
   /** Visual slip (yaw kick) of the hull during a drift, smoothed. */
   private slip = 0;
   /** Visual bank/roll, smoothed. */

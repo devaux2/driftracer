@@ -3,6 +3,10 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { Scene } from "@babylonjs/core/scene";
 import type { Ship } from "../ship/Ship";
 
+/** How fast the camera yaw catches up to the ship heading (per second). Lower =
+ * the ship slides more within the frame during a drift before the camera follows. */
+const CAM_YAW_EASE = 5;
+
 /**
  * A chase cam that sells speed. As the ship goes faster the camera pulls back
  * slightly and the FOV widens — the classic Wipeout/F-Zero rush. It also leans
@@ -19,6 +23,8 @@ export class ChaseCamera {
   private readonly maxFov = 1.04;
 
   private readonly smoothedPos = new Vector3();
+  private readonly smoothedTarget = new Vector3();
+  private camYaw = 0;
   private initialized = false;
 
   constructor(scene: Scene) {
@@ -33,33 +39,41 @@ export class ChaseCamera {
   update(dt: number, ship: Ship): void {
     const ratio = ship.speedRatio;
 
-    // Desired camera position: close behind + just above the ship. We pull IN
-    // slightly with speed (not out) so the ground rushes past faster — moving
-    // the camera away at speed kills the sense of speed.
+    // The camera's own yaw LAGS the ship's heading. This is the key to drifts
+    // not whipping the camera: during a drift the ship's nose swings fast, but
+    // the camera holds roughly behind your line of travel, so the ship visibly
+    // slides within the frame instead of dragging the view around. (ship.yaw is
+    // a continuous accumulating angle, so a plain lerp is safe — no wrapping.)
+    if (!this.initialized) this.camYaw = ship.yaw;
+    else this.camYaw += (ship.yaw - this.camYaw) * Math.min(1, CAM_YAW_EASE * dt);
+
+    // Desired camera position: close behind + just above, along the camera yaw.
+    // Pull IN slightly with speed (not out) so the ground rushes past faster.
     const back = this.baseDistance - ratio * 1.5;
-    const forward = new Vector3(Math.sin(ship.yaw), 0, Math.cos(ship.yaw));
+    const forward = new Vector3(Math.sin(this.camYaw), 0, Math.cos(this.camYaw));
+    const right = new Vector3(Math.cos(this.camYaw), 0, -Math.sin(this.camYaw));
     const desired = ship.position
       .subtract(forward.scale(back))
       .add(new Vector3(0, this.baseHeight, 0));
 
+    // Look a bit ahead, leaning toward the drift via the EASED drift amount.
+    const lookAhead = forward.scale(7 + ratio * 2);
+    const driftBias = right.scale(ship.driftDir * 5 * ship.driftAmount);
+    const target = ship.position.add(lookAhead).add(driftBias).add(new Vector3(0, 1.5, 0));
+
     if (!this.initialized) {
       this.smoothedPos.copyFrom(desired);
+      this.smoothedTarget.copyFrom(target);
       this.initialized = true;
     } else {
-      // Faster catch-up at speed keeps the ship from sliding out of frame.
+      // Catch-up at speed keeps the ship from sliding out of frame; the target
+      // is smoothed too so the camera angle never jumps.
       const k = Math.min(1, (6 + ratio * 6) * dt);
       this.smoothedPos.addInPlace(desired.subtract(this.smoothedPos).scale(k));
+      this.smoothedTarget.addInPlace(target.subtract(this.smoothedTarget).scale(Math.min(1, 7 * dt)));
     }
     this.camera.position.copyFrom(this.smoothedPos);
-
-    // Look a bit ahead of the ship, biased toward drift direction. Kept modest
-    // with speed so the ship doesn't sink small into the bottom of the frame.
-    const lookAhead = forward.scale(7 + ratio * 2);
-    const driftBias = new Vector3(Math.cos(ship.yaw), 0, -Math.sin(ship.yaw)).scale(
-      ship.drifting ? ship.driftDir * 5 : 0
-    );
-    const target = ship.position.add(lookAhead).add(driftBias).add(new Vector3(0, 1.5, 0));
-    this.camera.setTarget(target);
+    this.camera.setTarget(this.smoothedTarget);
 
     // FOV ramps with speed for the tunnel-vision rush.
     const targetFov = this.baseFov + (this.maxFov - this.baseFov) * Math.min(1, ratio);
