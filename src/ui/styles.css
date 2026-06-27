@@ -262,11 +262,23 @@ body,
   transform: skewX(13deg);
 }
 
-/* lap + times, top-left */
+/* lap + times: a wide, flat bar across the top-centre of the screen */
 .lap-panel {
-  top: max(0.9rem, env(safe-area-inset-top));
-  left: max(1.4rem, env(safe-area-inset-left));
-  padding: 0.5rem 1.4rem 0.55rem 1rem;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%); /* flat — no skew */
+  width: min(620px, 84vw);
+  padding: 0.3rem 1.6rem 0.4rem;
+  border-left: none;
+  border-bottom: 3px solid var(--accent);
+  border-radius: 0 0 10px 10px;
+}
+.lap-panel .panel-skew {
+  transform: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1.6rem;
 }
 .lap-row {
   display: flex;
@@ -282,27 +294,26 @@ body,
 .lap-num {
   color: var(--accent);
   font-weight: 800;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   text-shadow: 0 0 14px rgba(22, 224, 255, 0.6);
 }
 .time-cur {
-  font-size: 1.7rem;
+  font-size: 1.8rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  margin-top: 0.15rem;
+  letter-spacing: 0.04em;
 }
 .time-best {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.12em;
   opacity: 0.55;
-  margin-top: 0.05rem;
 }
 
-/* speedometer, bottom-left */
+/* speedometer, bottom-left (scaled to half size) */
 .speed-panel {
   bottom: max(0.9rem, env(safe-area-inset-bottom));
   left: max(1.4rem, env(safe-area-inset-left));
-  transform: skewX(-13deg);
+  transform: skewX(-13deg) scale(0.5);
+  transform-origin: bottom left;
   padding: 0.4rem 1.6rem 0.6rem;
   text-align: center;
   border-left: 3px solid var(--accent);

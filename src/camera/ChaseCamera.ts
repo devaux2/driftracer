@@ -72,6 +72,11 @@ export class ChaseCamera {
       this.smoothedPos.addInPlace(desired.subtract(this.smoothedPos).scale(k));
       this.smoothedTarget.addInPlace(target.subtract(this.smoothedTarget).scale(Math.min(1, 7 * dt)));
     }
+    // Never let the camera sink to/under the deck — e.g. when it lags behind a
+    // fast boost up a rise. Keep it clearly above the ship.
+    const minY = ship.position.y + 2.5;
+    if (this.smoothedPos.y < minY) this.smoothedPos.y = minY;
+
     this.camera.position.copyFrom(this.smoothedPos);
     this.camera.setTarget(this.smoothedTarget);
 
