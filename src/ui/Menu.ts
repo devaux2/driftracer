@@ -1,5 +1,5 @@
 import { SHIPS, getShipById, type ShipSpec } from "../config/ships";
-import { logoMark, ICONS, shipArt } from "./marks";
+import { logoMark, ICONS, shipIcon } from "./marks";
 import { ShipPreview } from "./ShipPreview";
 
 type Screen = "main" | "garage";
@@ -219,7 +219,7 @@ export class Menu {
     const cards = SHIPS.map(
       (s) => `
       <button class="vd-card ${s.id === this.selectedShipId ? "sel" : ""}" data-id="${s.id}">
-        ${shipArt(hex(s))}
+        ${shipIcon(s.id, hex(s))}
         <span class="vd-card-name">${s.code} // ${s.name}</span>
       </button>`
     ).join("");
