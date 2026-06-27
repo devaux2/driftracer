@@ -37,6 +37,7 @@ export class Game {
 
   private mode: GameMode = "menu";
   private lastSteer = 0;
+  private lastBoostCharges = -1;
 
   constructor(canvas: HTMLCanvasElement, private container: HTMLElement) {
     this.engine = new Engine(canvas, true, { stencil: true, antialias: true });
@@ -158,6 +159,7 @@ export class Game {
       boosting: this.ship.boostTimer > 0,
       airborne: this.ship.airborne,
       respawnFlash: this.ship.respawnFlash,
+      boostCharges: this.ship.boostCharges,
       lap: this.ship.lap,
       steer: this.lastSteer,
       pos: { x: this.ship.position.x, y: this.ship.position.y, z: this.ship.position.z },
@@ -176,11 +178,15 @@ export class Game {
     this.lastSteer = ctrl.steer;
 
     if (this.mode === "racing" && this.ship) {
-      if (ctrl.boost) this.ship.applyBoostPad();
+      if (ctrl.boost) this.ship.useManualBoost();
       this.ship.update(dt, ctrl, this.track);
       this.checkPads(dt);
       this.camera.update(dt, this.ship);
       this.hud.update(this.ship);
+      if (this.ship.boostCharges !== this.lastBoostCharges) {
+        this.input.touch.setBoostCharges(this.ship.boostCharges);
+        this.lastBoostCharges = this.ship.boostCharges;
+      }
       this.speedLines.render(dt, this.ship.speedRatio, this.ship.drifting ? this.ship.driftDir : 0);
 
       if (ctrl.pause) this.returnToMenu();

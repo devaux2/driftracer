@@ -147,6 +147,12 @@ export class TouchInput implements InputSource {
 
   // ---- InputSource ----------------------------------------------------------
 
+  /** Reflect remaining manual boosts on the BOOST button. */
+  setBoostCharges(n: number): void {
+    this.boostBtn.textContent = `BOOST ${n}`;
+    this.boostBtn.classList.toggle("depleted", n <= 0);
+  }
+
   /** Disable the joystick when gyro takes over steering. */
   setSteeringEnabled(enabled: boolean): void {
     this.steeringEnabled = enabled;
