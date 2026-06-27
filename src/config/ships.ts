@@ -59,8 +59,10 @@ const SPEED_MIN = 70;
 const SPEED_MAX = 130;
 const THRUST_MIN = 28;
 const THRUST_MAX = 70;
-const TURN_MIN = 1.6;
-const TURN_MAX = 2.9;
+// Grip (non-drift) turn rate, deliberately low so tight corners require a
+// drift rather than just steering through them.
+const TURN_MIN = 0.8;
+const TURN_MAX = 1.45;
 
 export function resolveShipStats(spec: ShipSpec): ResolvedShipStats {
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -73,7 +75,9 @@ export function resolveShipStats(spec: ShipSpec): ResolvedShipStats {
   // and need more room. Lighter ships snap into drifts and recover faster.
   const grip = lerp(3.2, 5.0, spec.cornering);
   const driftGrip = lerp(0.5, 1.3, spec.weight);
-  const driftTurnMultiplier = lerp(1.7, 1.25, spec.weight);
+  // Drifting turns ~3x sharper than gripping (base turn was halved, so this is
+  // doubled to keep drift turning strong) — that's what makes drift necessary.
+  const driftTurnMultiplier = lerp(3.4, 2.5, spec.weight);
 
   return {
     thrust,
