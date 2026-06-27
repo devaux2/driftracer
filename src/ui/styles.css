@@ -299,11 +299,20 @@ body,
   padding: 0.35rem 1.8rem 0.5rem;
   clip-path: polygon(0 0, 100% 0, 100% 100%, 24px 100%, 0 calc(100% - 16px));
 }
+/* 3 columns: LAP (left) · TIME (dead-centre) · BEST (right). The 1fr sides are
+ * equal, so the centre TIME column stays put regardless of lap/best widths. */
 .lap-panel .panel-skew {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: baseline;
-  justify-content: center;
-  gap: 1.6rem;
+  gap: 1rem;
+}
+.lap-row {
+  justify-self: start;
+}
+.time-best {
+  justify-self: end;
+  text-align: right;
 }
 .lap-panel .panel-skew {
   transform: none;
@@ -336,6 +345,10 @@ body,
   font-weight: 700;
   letter-spacing: 0.04em;
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
+  justify-self: center;
+  /* fixed-width digits so the clock doesn't jiggle as it ticks */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 .time-best {
   font-size: 0.75rem;
