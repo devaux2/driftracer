@@ -7,6 +7,10 @@ import type { Ship } from "../ship/Ship";
  * Smooths the swing when grip re-engages and the velocity snaps to the heading. */
 const CAM_YAW_EASE = 5;
 
+/** Fixed amount the look-target sits below the camera, giving a constant gentle
+ * downward pitch (so vertical tilt never swings with speed or elevation). */
+const LOOK_DROP = 1.2;
+
 /**
  * A chase cam that sells speed. As the ship goes faster the camera pulls back
  * slightly and the FOV widens — the classic Wipeout/F-Zero rush. It also leans
@@ -64,25 +68,34 @@ export class ChaseCamera {
       .subtract(forward.scale(back))
       .add(new Vector3(0, this.baseHeight, 0));
 
-    // Look ahead along the travel direction.
+    // Look ahead along the travel direction (horizontal only — vertical is
+    // handled below).
     const lookAhead = forward.scale(7 + ratio * 2);
-    const target = ship.position.add(lookAhead).add(new Vector3(0, 1.5, 0));
+    const target = ship.position.add(lookAhead);
 
     if (!this.initialized) {
       this.smoothedPos.copyFrom(desired);
       this.smoothedTarget.copyFrom(target);
       this.initialized = true;
     } else {
-      // Catch-up at speed keeps the ship from sliding out of frame; the target
-      // is smoothed too so the camera angle never jumps.
+      // Catch-up at speed keeps the ship from sliding out of frame; the target's
+      // horizontal position is smoothed too so the camera angle never jumps.
       const k = Math.min(1, (6 + ratio * 6) * dt);
       this.smoothedPos.addInPlace(desired.subtract(this.smoothedPos).scale(k));
-      this.smoothedTarget.addInPlace(target.subtract(this.smoothedTarget).scale(Math.min(1, 7 * dt)));
+      const tk = Math.min(1, 7 * dt);
+      this.smoothedTarget.x += (target.x - this.smoothedTarget.x) * tk;
+      this.smoothedTarget.z += (target.z - this.smoothedTarget.z) * tk;
     }
     // Never let the camera sink to/under the deck — e.g. when it lags behind a
     // fast boost up a rise. Keep it clearly above the ship.
     const minY = ship.position.y + 1.5;
     if (this.smoothedPos.y < minY) this.smoothedPos.y = minY;
+
+    // Lock the vertical look angle: the target's height tracks the CAMERA's
+    // height (minus a fixed gentle drop), so the camera always looks the same
+    // small amount downward regardless of speed/boost/elevation — no vertical
+    // tilt swings.
+    this.smoothedTarget.y = this.smoothedPos.y - LOOK_DROP;
 
     this.camera.position.copyFrom(this.smoothedPos);
     this.camera.setTarget(this.smoothedTarget);
