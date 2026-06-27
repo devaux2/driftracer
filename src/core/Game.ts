@@ -15,6 +15,7 @@ import { SpeedLines } from "../effects/SpeedLines";
 import { HUD } from "../ui/HUD";
 import { Menu } from "../ui/Menu";
 import { Splash } from "../ui/Splash";
+import { Boot } from "../ui/Boot";
 import { Bot, randomBotProfile } from "../race/Bot";
 import { Minimap } from "../race/Minimap";
 import { Ghost } from "../race/Ghost";
@@ -105,11 +106,15 @@ export class Game {
     );
     this.menu.show(false); // hidden until PLAY is clicked on the title screen
 
-    // Title screen first. Clicking PLAY enters fullscreen (the required user
-    // gesture), then reveals the ship-select menu — already fullscreen.
-    new Splash(this.container, () => {
+    // Boot gate first: it captures the first user gesture so we can go
+    // fullscreen *before* showing the splash (so the splash is fullscreen).
+    // Splash → menu, both already fullscreen.
+    new Boot(this.container, () => {
       void this.enterFullscreen();
-      this.menu.show(true);
+      new Splash(this.container, () => {
+        void this.enterFullscreen();
+        this.menu.show(true);
+      });
     });
 
     this.engine.runRenderLoop(() => this.frame());

@@ -81,12 +81,76 @@
 /* ============================================================================
    SPLASH (red initialise screen)
    ============================================================================ */
+/* ---- boot gate (pre-splash) ---- */
+.vd-boot {
+  background: #060608;
+  color: #fff;
+  font-family: var(--vd-display);
+  cursor: pointer;
+  z-index: 80;
+  transition: opacity 0.35s ease;
+  overflow: hidden;
+}
+.vd-boot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.035) 0 1px,
+    transparent 1px 3px
+  );
+  pointer-events: none;
+}
+.vd-boot.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+.vd-boot-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.4vh;
+  text-align: center;
+}
+.vd-boot-mark {
+  width: clamp(48px, 11vh, 110px);
+  color: var(--vd-pink);
+  margin-bottom: 1vh;
+}
+.vd-boot-mark .vd-mark {
+  width: 100%;
+}
+.vd-boot-sys {
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
+  font-size: clamp(0.7rem, 2vh, 1.1rem);
+  color: rgba(255, 255, 255, 0.55);
+}
+.vd-boot-enter {
+  font-size: clamp(1.6rem, 6vh, 3.4rem);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
+  color: var(--vd-lime);
+  text-shadow: 0 0 24px rgba(215, 255, 55, 0.5);
+  animation: vd-blink 1.2s steps(1) infinite;
+}
+.vd-boot-hint {
+  margin-top: 1vh;
+  font-size: clamp(0.6rem, 1.7vh, 0.95rem);
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.4);
+}
+
 .vd-splash {
   background: radial-gradient(circle at 50% 42%, #ff315f 0%, #f30f3f 46%, #cc002e 100%);
   color: #fff;
   font-family: var(--vd-display);
   cursor: pointer;
   overflow: hidden;
+  z-index: 70;
   transition: opacity 0.35s ease;
 }
 .vd-splash.fade-out {
