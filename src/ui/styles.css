@@ -44,6 +44,12 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
+  /* On a short landscape screen the content can be taller than the viewport.
+     Let it scroll instead of clipping; `safe center` keeps the top reachable
+     when it overflows (older browsers ignore it and keep plain centering). */
+  align-items: safe center;
+  overflow-y: auto;
+  touch-action: pan-y;
   z-index: 20;
 }
 
@@ -755,4 +761,139 @@ body,
 }
 .results-btns .start-btn {
   margin-top: 0;
+}
+
+/* ============================================================
+   Compact landscape layout (phones held sideways are short).
+   Everything is tightened so each menu fits without scrolling;
+   if it still can't, the scroll-safe .overlay rules cover it.
+   ============================================================ */
+@media (max-height: 540px) {
+  /* splash */
+  .splash-inner {
+    gap: 0.45rem;
+  }
+  .logo.big {
+    font-size: clamp(1.9rem, 9vh, 3.4rem);
+  }
+  .splash-start {
+    margin-top: 0.5rem;
+    padding: 0.55rem 2rem;
+    font-size: clamp(0.85rem, 4vh, 1.2rem);
+  }
+  .splash-hint,
+  .tagline {
+    font-size: 0.68rem;
+  }
+
+  /* main menu */
+  .menu-inner {
+    gap: 0.4rem;
+    padding: 0.5rem;
+  }
+  .logo {
+    font-size: clamp(1.5rem, 8vh, 2.6rem);
+  }
+  .mode-list,
+  .garage-btn {
+    width: min(560px, 86vw);
+  }
+  .mode-list {
+    gap: 0.3rem;
+  }
+  .mode-card {
+    padding: 0.35rem 0.9rem;
+  }
+  .mode-name {
+    font-size: 0.95rem;
+  }
+  .mode-desc {
+    font-size: 0.64rem;
+  }
+  .mode-soon {
+    top: 0.35rem;
+  }
+  .garage-btn {
+    padding: 0.4rem 0.9rem;
+    margin-top: 0.1rem;
+  }
+  .gyro-toggle {
+    font-size: 0.76rem;
+  }
+  .controls-hint {
+    font-size: 0.64rem;
+  }
+
+  /* garage: two columns (ship list | details) to exploit the wide aspect */
+  .menu--garage .menu-inner {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    grid-template-areas:
+      "head head"
+      "roster detail"
+      "select select";
+    width: min(860px, 96vw);
+    gap: 0.4rem 0.8rem;
+    align-items: start;
+  }
+  .menu--garage .garage-head {
+    grid-area: head;
+  }
+  .menu--garage .ship-roster {
+    grid-area: roster;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+  }
+  .menu--garage .ship-card {
+    width: 100%;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.82rem;
+  }
+  .menu--garage .ship-detail {
+    grid-area: detail;
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+  }
+  .menu--garage .select-btn {
+    grid-area: select;
+    justify-self: center;
+  }
+  .ship-detail h2 {
+    font-size: 1.1rem;
+  }
+  .blurb {
+    font-size: 0.72rem;
+    margin-bottom: 0.4rem;
+  }
+  .stat {
+    font-size: 0.68rem;
+    margin: 0.18rem 0;
+  }
+  .stat span {
+    width: 70px;
+  }
+  .start-btn {
+    font-size: 1rem;
+    padding: 0.55rem 1.9rem;
+  }
+
+  /* results */
+  .results-inner {
+    gap: 0.5rem;
+    padding: 0.6rem;
+  }
+  .results-title {
+    font-size: clamp(1.5rem, 8vh, 2.4rem);
+  }
+  .results-sub {
+    margin-top: -0.4rem;
+    font-size: 0.74rem;
+  }
+  .result-row {
+    padding: 0.4rem 0.9rem;
+  }
+  .result-value {
+    font-size: 1.05rem;
+  }
 }

@@ -52,6 +52,7 @@ export class Menu {
   // ---- main: game modes ----------------------------------------------------
 
   private renderMain(): void {
+    this.root.className = "menu overlay menu--main";
     const ship = getShipById(this.selectedShipId);
     const modes = MODES.map(
       (m) => `
@@ -94,6 +95,7 @@ export class Menu {
   // ---- garage: ship select -------------------------------------------------
 
   private renderGarage(): void {
+    this.root.className = "menu overlay menu--garage";
     const ship = getShipById(this.selectedShipId);
     const cards = SHIPS.map(
       (s) => `
