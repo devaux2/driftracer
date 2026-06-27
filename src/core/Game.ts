@@ -132,7 +132,7 @@ export class Game {
     }
     this.ship = new Ship(this.scene, spec);
     this.ship.placeAtStart(this.track.startPosition, this.track.startForward);
-    this.camera.snapTo(this.ship);
+    this.camera.snapTo(this.ship, this.track);
 
     void this.enterFullscreen();
 
@@ -180,7 +180,7 @@ export class Game {
     if (this.mode === "racing" && this.ship) {
       this.ship.update(dt, ctrl, this.track);
       this.checkPads(dt);
-      this.camera.update(dt, this.ship);
+      this.camera.update(dt, this.ship, this.track);
       this.hud.update(this.ship);
       this.speedLines.render(dt, this.ship.speedRatio, this.ship.drifting ? this.ship.driftDir : 0);
 
