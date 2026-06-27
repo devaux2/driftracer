@@ -35,6 +35,7 @@ export class HUD {
   private posTotalEl: HTMLElement;
   private posPanel: HTMLElement;
   private countdownEl: HTMLElement;
+  private countdownText: string | null = null;
   private totalLaps = 3;
 
   constructor(container: HTMLElement) {
@@ -88,14 +89,19 @@ export class HUD {
     this.totalLaps = n;
   }
 
-  /** Show a countdown string (e.g. "3", "GO"), or null to clear it. */
+  /** Show a countdown string (e.g. "3", "GO"), or null to clear it. Called every
+   * frame during the count, so it no-ops when the value is unchanged — otherwise
+   * the pop animation would restart each frame and never play. */
   setCountdown(text: string | null): void {
+    if (text === this.countdownText) return;
+    this.countdownText = text;
     if (text == null) {
       this.countdownEl.style.display = "none";
       return;
     }
     this.countdownEl.textContent = text;
-    this.countdownEl.style.display = "";
+    this.countdownEl.style.display = "flex";
+    this.countdownEl.classList.toggle("go", text === "GO");
     // restart the pop animation
     this.countdownEl.classList.remove("pop");
     void this.countdownEl.offsetWidth;

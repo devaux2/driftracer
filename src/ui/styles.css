@@ -660,7 +660,7 @@ body,
   border-color: var(--accent-2);
 }
 
-/* ---- countdown ---- */
+/* ---- countdown (screen-filling) ---- */
 .countdown {
   position: absolute;
   inset: 0;
@@ -672,25 +672,45 @@ body,
   font-family: var(--font-display);
   font-weight: 900;
   font-style: italic;
-  font-size: clamp(5rem, 18vw, 12rem);
+  /* Fill the screen: the number is as tall as it can be on a short landscape
+     phone, and huge on desktop. */
+  font-size: min(62vh, 46vw);
+  line-height: 0.9;
   color: #fff;
-  text-shadow: 0 0 30px var(--accent), 0 0 70px var(--accent-2);
+  text-shadow: 0 0 24px var(--accent), 0 0 64px var(--accent),
+    0 0 130px var(--accent-2);
+  /* Dim the scene towards the centre so the number always reads (the grid is
+     frozen during the count, so this is safe). */
+  background: radial-gradient(
+    circle at center,
+    rgba(2, 3, 10, 0.6) 0%,
+    rgba(2, 3, 10, 0.25) 38%,
+    transparent 64%
+  );
+}
+.countdown.go {
+  color: var(--boost);
+  text-shadow: 0 0 28px var(--boost), 0 0 80px var(--boost),
+    0 0 150px var(--accent-2);
 }
 .countdown.pop {
   animation: cd-pop 0.5s ease-out;
 }
 @keyframes cd-pop {
   0% {
-    transform: scale(1.8);
+    transform: scale(2.6);
     opacity: 0;
   }
-  35% {
-    transform: scale(1);
+  28% {
+    transform: scale(1.06);
     opacity: 1;
+  }
+  44% {
+    transform: scale(1);
   }
   100% {
     transform: scale(1);
-    opacity: 0.9;
+    opacity: 0.95;
   }
 }
 
