@@ -1,4 +1,5 @@
 import "./ui/styles.css";
+import "./ui/vd-theme.css";
 import { Game } from "./core/Game";
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;

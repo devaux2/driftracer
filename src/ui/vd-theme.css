@@ -1,0 +1,759 @@
+/* ============================================================================
+   VECTOR DRIFT — front-end theme (splash / main menu / garage).
+   Sizing is mostly viewport-height based so the dense 16:9 layouts scale
+   proportionally from a landscape phone up to desktop.
+   ============================================================================ */
+:root {
+  --vd-pink: #ff1e5a;
+  --vd-pink-deep: #d8003c;
+  --vd-lime: #d7ff37;
+  --vd-ink: #0a0a0c;
+  --vd-panel: #ececef;
+  --vd-panel-ink: #0c0c10;
+  --vd-display: "Chakra Petch", "Segoe UI", sans-serif;
+  --vd-jp: "Noto Sans JP", "Chakra Petch", sans-serif;
+}
+
+/* ---- shared chrome decorations ------------------------------------------- */
+.vd-mark {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.vd-ic {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.vd-hatch-lime {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--vd-lime) 0 7px,
+    transparent 7px 14px
+  );
+}
+.vd-hatch-pink {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--vd-pink) 0 6px,
+    transparent 6px 12px
+  );
+}
+.vd-plus {
+  position: absolute;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: var(--vd-display);
+  font-weight: 400;
+  font-size: 2.4vh;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+.vd-side-label {
+  position: absolute;
+  writing-mode: vertical-rl;
+  letter-spacing: 0.4em;
+  font-size: 1.4vh;
+  font-family: var(--vd-display);
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+.vd-corner {
+  position: absolute;
+  width: 4.5vh;
+  height: 4.5vh;
+  border: 2px solid var(--vd-pink);
+  pointer-events: none;
+}
+.vd-corner.tl {
+  top: 2.2vh;
+  left: 2.2vh;
+  border-right: 0;
+  border-bottom: 0;
+}
+.vd-corner.br {
+  right: 2.2vh;
+  bottom: 2.2vh;
+  border-left: 0;
+  border-top: 0;
+}
+
+/* ============================================================================
+   SPLASH (red initialise screen)
+   ============================================================================ */
+.vd-splash {
+  background: radial-gradient(circle at 50% 42%, #ff315f 0%, #f30f3f 46%, #cc002e 100%);
+  color: #fff;
+  font-family: var(--vd-display);
+  cursor: pointer;
+  overflow: hidden;
+  transition: opacity 0.35s ease;
+}
+.vd-splash.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+/* diagonal light streaks */
+.vd-splash::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(115deg, transparent 60%, rgba(255, 255, 255, 0.14) 61%, transparent 63%),
+    linear-gradient(115deg, transparent 72%, rgba(0, 0, 0, 0.22) 73%, transparent 76%),
+    linear-gradient(115deg, transparent 30%, rgba(0, 0, 0, 0.12) 31%, transparent 33%);
+  pointer-events: none;
+}
+.vd-splash-center {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.4vh;
+  text-align: center;
+}
+.vd-splash-center .vd-mark {
+  width: clamp(80px, 20vh, 200px);
+  color: #fff;
+  margin-bottom: 1vh;
+  filter: drop-shadow(0 0 18px rgba(0, 0, 0, 0.15));
+}
+.vd-wordmark {
+  font-size: clamp(2rem, 9vh, 6.2rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 0.9;
+  text-indent: 0.16em;
+}
+.vd-jp {
+  font-family: var(--vd-jp);
+  font-weight: 700;
+  color: var(--vd-lime);
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  font-size: clamp(0.8rem, 2.8vh, 1.7rem);
+}
+.vd-tapstart {
+  margin-top: 2vh;
+  font-size: 1.8vh;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  opacity: 0.9;
+  animation: vd-blink 1.4s steps(1) infinite;
+}
+@keyframes vd-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* splash top-left tag */
+.vd-splash-tag {
+  position: absolute;
+  top: 3vh;
+  left: 3.4vh;
+  z-index: 2;
+}
+.vd-splash-tag .id {
+  font-size: 1.8vh;
+  letter-spacing: 0.3em;
+}
+.vd-splash-tag .bars {
+  width: 9vh;
+  height: 1.4vh;
+  margin-top: 0.8vh;
+}
+/* splash top-right flag */
+.vd-splash-flag {
+  position: absolute;
+  top: 3vh;
+  right: 3.4vh;
+  width: 7vh;
+  height: 2.4vh;
+  background: var(--vd-lime);
+  clip-path: polygon(14% 0, 100% 0, 86% 100%, 0 100%);
+  z-index: 2;
+}
+
+/* splash footer: init + progress */
+.vd-splash-foot {
+  position: absolute;
+  left: 3.4vh;
+  right: 3.4vh;
+  bottom: 3.2vh;
+  display: flex;
+  align-items: center;
+  gap: 2.4vh;
+  z-index: 2;
+}
+.vd-init {
+  display: flex;
+  align-items: center;
+  gap: 1.4vh;
+  flex: 0 0 auto;
+}
+.vd-init .glyph {
+  width: 3.4vh;
+  height: 3.4vh;
+  background: conic-gradient(#fff 0 25%, transparent 0 50%, #fff 0 75%, transparent 0)
+    0 0 / 50% 50%;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+.vd-init .en {
+  display: block;
+  color: var(--vd-lime);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  font-size: 1.7vh;
+}
+.vd-init .jp {
+  display: block;
+  font-family: var(--vd-jp);
+  font-size: 1.4vh;
+  opacity: 0.9;
+}
+.vd-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1.4vh;
+  min-width: 0;
+}
+.vd-progress .chev {
+  letter-spacing: 0.1em;
+  font-size: 1.8vh;
+  opacity: 0.85;
+}
+.vd-bar {
+  flex: 1;
+  height: 1.9vh;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+.vd-bar > i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--vd-lime) 0 9px,
+    rgba(0, 0, 0, 0.15) 9px 18px
+  );
+  animation: vd-fill 2.2s ease-out forwards;
+}
+@keyframes vd-fill {
+  from {
+    width: 8%;
+  }
+  to {
+    width: 100%;
+  }
+}
+.vd-pct {
+  font-size: 1.8vh;
+  color: var(--vd-lime);
+  letter-spacing: 0.1em;
+  flex: 0 0 auto;
+}
+.vd-build {
+  position: absolute;
+  right: 3.4vh;
+  bottom: 0.8vh;
+  font-size: 1.3vh;
+  letter-spacing: 0.12em;
+  opacity: 0.55;
+  z-index: 2;
+}
+
+/* ============================================================================
+   MENU + GARAGE shared shell (dark)
+   ============================================================================ */
+.vd-menu {
+  background: radial-gradient(circle at 64% 46%, #19191e 0%, #0a0a0c 62%);
+  color: #fff;
+  font-family: var(--vd-display);
+  align-items: stretch;
+  justify-content: stretch;
+}
+.vd-shell {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 2.6vh 3.4vh;
+  gap: 1.4vh;
+}
+.vd-topbar,
+.vd-botbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+}
+.vd-brand {
+  display: flex;
+  align-items: center;
+  gap: 1.8vh;
+}
+.vd-badge {
+  width: clamp(38px, 8vh, 78px);
+  aspect-ratio: 1;
+  background: linear-gradient(150deg, var(--vd-pink), var(--vd-pink-deep));
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+.vd-badge .vd-mark {
+  width: 56%;
+}
+.vd-brand-name {
+  font-size: clamp(1.2rem, 4.4vh, 2.6rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 0.95;
+}
+.vd-brand-jp {
+  font-family: var(--vd-jp);
+  font-weight: 500;
+  color: var(--vd-pink);
+  letter-spacing: 0.3em;
+  font-size: clamp(0.7rem, 1.9vh, 1.1rem);
+}
+.vd-brand--garage .vd-brand-name {
+  display: flex;
+  align-items: center;
+  gap: 2vh;
+}
+.vd-brand--garage .vd-brand-name::after {
+  content: "";
+  width: 22vh;
+  max-width: 30vw;
+  height: 1.4vh;
+  opacity: 0.7;
+}
+
+/* top-right meta block (PILOT ID / CREDITS) */
+.vd-meta {
+  display: flex;
+  align-items: center;
+  gap: 1.6vh;
+}
+.vd-meta-txt {
+  text-align: right;
+}
+.vd-meta-label {
+  display: block;
+  color: var(--vd-lime);
+  letter-spacing: 0.22em;
+  font-size: 1.5vh;
+}
+.vd-meta-val {
+  display: block;
+  color: var(--vd-pink);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-size: clamp(1rem, 3vh, 1.8rem);
+}
+.vd-plusbox {
+  width: 4.4vh;
+  height: 4.4vh;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  display: grid;
+  place-items: center;
+  font-size: 2.4vh;
+  color: rgba(255, 255, 255, 0.7);
+}
+.vd-meta .tag {
+  width: 5vh;
+  height: 4.4vh;
+  clip-path: polygon(20% 0, 100% 0, 80% 100%, 0 100%);
+}
+
+/* bottom action hints */
+.vd-act {
+  display: flex;
+  align-items: center;
+  gap: 1.2vh;
+  background: none;
+  border: 0;
+  color: #fff;
+  font-family: var(--vd-display);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  font-size: clamp(0.9rem, 2.3vh, 1.4rem);
+  cursor: pointer;
+}
+.vd-act .ring {
+  width: 3vh;
+  height: 3vh;
+  border-radius: 50%;
+  border: 2px solid var(--vd-pink);
+  display: grid;
+  place-items: center;
+  color: var(--vd-pink);
+  font-size: 1.8vh;
+}
+.vd-status {
+  display: flex;
+  align-items: center;
+  gap: 2vh;
+  letter-spacing: 0.18em;
+  font-size: 1.7vh;
+  opacity: 0.85;
+}
+.vd-status .dot {
+  width: 1.2vh;
+  height: 1.2vh;
+  border-radius: 50%;
+  background: var(--vd-lime);
+  margin-right: 0.8vh;
+}
+.vd-gyro {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--vd-display);
+  letter-spacing: 0.18em;
+  font-size: 1.5vh;
+  padding: 0.5vh 1.2vh;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 100%, 8px 100%);
+}
+.vd-gyro.on {
+  border-color: var(--vd-lime);
+  color: var(--vd-lime);
+  box-shadow: 0 0 14px rgba(215, 255, 55, 0.3);
+}
+
+/* ============================================================================
+   MAIN MENU
+   ============================================================================ */
+.vd-menu-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 3vh;
+  min-height: 0;
+}
+.vd-modes {
+  flex: 0 0 46%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4vh;
+}
+.vd-mode {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2vh;
+  padding: 1.5vh 2vh 1.5vh 2.2vh;
+  background: var(--vd-panel);
+  color: var(--vd-panel-ink);
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 50%, calc(100% - 22px) 100%, 0 100%);
+  transition: transform 0.12s ease, background 0.12s ease;
+  font-family: var(--vd-display);
+}
+.vd-mode .vd-ic {
+  width: clamp(20px, 3.6vh, 34px);
+  height: clamp(20px, 3.6vh, 34px);
+  flex: 0 0 auto;
+}
+.vd-mode-name {
+  font-weight: 700;
+  font-size: clamp(1rem, 3.3vh, 1.9rem);
+  letter-spacing: 0.07em;
+  line-height: 1;
+}
+.vd-mode-jp {
+  display: block;
+  font-family: var(--vd-jp);
+  font-weight: 500;
+  font-size: clamp(0.62rem, 1.7vh, 1rem);
+  opacity: 0.7;
+  margin-top: 0.4vh;
+}
+.vd-mode.sel {
+  background: var(--vd-lime);
+  transform: scale(1.04);
+  transform-origin: left center;
+  box-shadow: 0 0 26px rgba(215, 255, 55, 0.35);
+}
+.vd-mode:not(.sel):hover {
+  background: #fff;
+}
+.vd-mode.soon {
+  opacity: 0.55;
+}
+.vd-mode .soon-tag {
+  position: absolute;
+  top: 1vh;
+  right: 3.4vh;
+  font-size: 1.3vh;
+  letter-spacing: 0.2em;
+  color: var(--vd-pink);
+  border: 1px solid var(--vd-pink);
+  padding: 0.1vh 0.7vh;
+}
+/* bracket above the selected list */
+.vd-modes-bracket {
+  width: 5vh;
+  height: 3vh;
+  border-left: 2px solid var(--vd-lime);
+  border-top: 2px solid var(--vd-lime);
+  margin-bottom: -0.4vh;
+}
+
+.vd-hero {
+  flex: 1;
+  position: relative;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.vd-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 60% 50%, rgba(255, 30, 90, 0.16), transparent 60%),
+    linear-gradient(110deg, transparent 64%, var(--vd-pink) 64.4%, transparent 65%),
+    linear-gradient(110deg, transparent 70%, rgba(255, 30, 90, 0.5) 70.3%, transparent 71%),
+    linear-gradient(110deg, transparent 78%, var(--vd-pink) 78.3%, transparent 79%);
+  pointer-events: none;
+}
+.vd-hero .vd-ship {
+  position: relative;
+  width: min(92%, 80vh);
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.6))
+    drop-shadow(0 0 30px rgba(255, 30, 90, 0.35));
+  transform: rotate(-8deg);
+}
+
+/* ============================================================================
+   GARAGE
+   ============================================================================ */
+.vd-garage-body {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 2vh;
+  min-height: 0;
+}
+.vd-statcard {
+  flex: 0 0 32%;
+  align-self: flex-start;
+  background: rgba(12, 13, 18, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%);
+  padding: 2.2vh 2.4vh;
+  position: relative;
+}
+.vd-statcard .arrow {
+  position: absolute;
+  top: 1.8vh;
+  right: 2vh;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 2.4vh;
+}
+.vd-statcard .corner {
+  position: absolute;
+  left: 1vh;
+  bottom: 1vh;
+  width: 2.2vh;
+  height: 2.2vh;
+  border-left: 2px solid var(--vd-pink);
+  border-bottom: 2px solid var(--vd-pink);
+}
+.vd-sc-name {
+  font-size: clamp(1.1rem, 3.4vh, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.vd-sc-jp {
+  font-family: var(--vd-jp);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.7vh;
+  margin-bottom: 2vh;
+}
+.vd-stat {
+  margin: 1.6vh 0;
+}
+.vd-stat-label {
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  font-size: 1.7vh;
+}
+.vd-stat-jp {
+  font-family: var(--vd-jp);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 1.3vh;
+  margin-left: 0.8vh;
+}
+.vd-seg {
+  display: flex;
+  gap: 0.6vh;
+  margin-top: 0.8vh;
+}
+.vd-seg > i {
+  flex: 1;
+  height: 1.7vh;
+  background: rgba(255, 255, 255, 0.1);
+  transform: skewX(-18deg);
+}
+.vd-seg > i.on {
+  background: var(--vd-pink);
+  box-shadow: 0 0 8px rgba(255, 30, 90, 0.6);
+}
+
+.vd-garage-hero {
+  flex: 1;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+.vd-ring {
+  position: absolute;
+  bottom: 12%;
+  width: min(70%, 60vh);
+  aspect-ratio: 2.6 / 1;
+  border-radius: 50%;
+  border: 2px solid var(--vd-pink);
+  box-shadow: 0 0 40px rgba(255, 30, 90, 0.6), inset 0 0 30px rgba(255, 30, 90, 0.35);
+}
+.vd-garage-hero .vd-ship {
+  position: relative;
+  width: min(86%, 74vh);
+  transform: rotate(-6deg);
+  filter: drop-shadow(0 20px 36px rgba(0, 0, 0, 0.7))
+    drop-shadow(0 0 26px rgba(255, 30, 90, 0.4));
+}
+
+/* right mini side-nav */
+.vd-sidenav {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.8vh;
+  padding-left: 1vh;
+  color: rgba(255, 255, 255, 0.55);
+}
+.vd-sidenav .tab {
+  writing-mode: vertical-rl;
+  background: var(--vd-lime);
+  color: #0a0a0c;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  padding: 1.4vh 0.7vh;
+  font-size: 1.6vh;
+  clip-path: polygon(0 0, 100% 6%, 100% 94%, 0 100%);
+}
+.vd-sidenav .ico {
+  width: 2.6vh;
+  height: 2.6vh;
+}
+.vd-sidenav .num {
+  color: var(--vd-lime);
+  font-size: 1.7vh;
+}
+
+/* roster carousel */
+.vd-roster {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1.4vh;
+}
+.vd-roster .nav {
+  background: none;
+  border: 0;
+  color: var(--vd-pink);
+  font-size: 4vh;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.5vh;
+}
+.vd-cards {
+  flex: 1;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 1.4vh;
+}
+.vd-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 1vh 1.4vh 1.4vh;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6vh;
+  overflow: hidden;
+}
+.vd-card .vd-ship {
+  width: 78%;
+  transform: rotate(-6deg);
+}
+.vd-card-name {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: clamp(0.62rem, 1.7vh, 1rem);
+  white-space: nowrap;
+}
+.vd-card.sel {
+  border-color: var(--vd-lime);
+  box-shadow: 0 0 22px rgba(215, 255, 55, 0.3);
+}
+.vd-card.sel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 1.1vh solid transparent;
+  border-top-color: var(--vd-lime);
+  border-left-color: var(--vd-lime);
+}
+.vd-card.sel .vd-card-name {
+  color: var(--vd-lime);
+}
+
+/* scattered "+" marks shared by menu/garage */
+.vd-p1 {
+  top: 24%;
+  left: 1.4vh;
+}
+.vd-p2 {
+  bottom: 22%;
+  left: 1.4vh;
+}
+.vd-p3 {
+  top: 34%;
+  right: 1.4vh;
+}
+.vd-p4 {
+  bottom: 30%;
+  right: 1.4vh;
+}
+
+/* ============================================================================
+   tighten on very short screens (small landscape phones)
+   ============================================================================ */
+@media (max-height: 380px) {
+  .vd-shell {
+    padding: 1.8vh 2.4vh;
+    gap: 0.8vh;
+  }
+  .vd-mode {
+    padding: 1vh 1.6vh;
+  }
+  .vd-statcard {
+    padding: 1.4vh 1.6vh;
+  }
+}

@@ -15,7 +15,12 @@ import { Color3 } from "@babylonjs/core/Maths/math.color";
  */
 export interface ShipSpec {
   id: string;
+  /** Hull designation, e.g. "VD-01". */
+  code: string;
+  /** Model name, e.g. "HAYATE". */
   name: string;
+  /** Japanese model name shown under the designation. */
+  jp: string;
   /** Short flavour line shown in the select screen. */
   blurb: string;
   /** Hull accent colour. */
@@ -93,44 +98,64 @@ export function resolveShipStats(spec: ShipSpec): ResolvedShipStats {
 
 export const SHIPS: ShipSpec[] = [
   {
-    id: "vanguard",
-    name: "Vanguard",
+    id: "vd-01",
+    code: "VD-01",
+    name: "HAYATE",
+    jp: "ハヤテ",
     blurb: "Balanced all-rounder. A safe first ride.",
-    color: new Color3(0.2, 0.7, 1.0),
-    acceleration: 0.55,
-    topSpeed: 0.6,
-    cornering: 0.6,
-    weight: 0.5,
+    color: new Color3(1.0, 0.18, 0.38),
+    acceleration: 0.6,
+    topSpeed: 0.68,
+    cornering: 0.72,
+    weight: 0.35,
   },
   {
-    id: "wraith",
-    name: "Wraith",
+    id: "vd-02",
+    code: "VD-02",
+    name: "KAMUI",
+    jp: "カムイ",
     blurb: "Featherweight. Razor cornering, modest top end.",
-    color: new Color3(0.6, 1.0, 0.4),
+    color: new Color3(0.16, 0.82, 0.5),
     acceleration: 0.7,
     topSpeed: 0.45,
     cornering: 0.9,
     weight: 0.25,
   },
   {
-    id: "juggernaut",
-    name: "Juggernaut",
-    blurb: "Heavy hitter. Blistering top speed, wide turns.",
-    color: new Color3(1.0, 0.5, 0.2),
-    acceleration: 0.4,
-    topSpeed: 0.95,
-    cornering: 0.35,
-    weight: 0.85,
+    id: "vd-03",
+    code: "VD-03",
+    name: "REIKA",
+    jp: "レイカ",
+    blurb: "Quick off the line. Strong acceleration, even keel.",
+    color: new Color3(0.96, 0.85, 0.2),
+    acceleration: 0.88,
+    topSpeed: 0.6,
+    cornering: 0.55,
+    weight: 0.5,
   },
   {
-    id: "tempest",
-    name: "Tempest",
+    id: "vd-04",
+    code: "VD-04",
+    name: "SHINOBI",
+    jp: "シノビ",
     blurb: "Drift specialist. Loose tail, huge slides.",
-    color: new Color3(0.9, 0.3, 0.8),
-    acceleration: 0.6,
-    topSpeed: 0.7,
-    cornering: 0.55,
-    weight: 0.75,
+    color: new Color3(0.6, 0.35, 0.95),
+    acceleration: 0.55,
+    topSpeed: 0.72,
+    cornering: 0.6,
+    weight: 0.72,
+  },
+  {
+    id: "vd-05",
+    code: "VD-05",
+    name: "RAIDEN",
+    jp: "ライデン",
+    blurb: "Heavy hitter. Blistering top speed, wide turns.",
+    color: new Color3(1.0, 0.45, 0.15),
+    acceleration: 0.4,
+    topSpeed: 0.98,
+    cornering: 0.35,
+    weight: 0.9,
   },
 ];
 

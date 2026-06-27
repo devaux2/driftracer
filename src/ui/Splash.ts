@@ -1,27 +1,53 @@
+import { logoMark } from "./marks";
+
 /**
- * Title screen. Shows the game title and a PLAY button. Clicking PLAY is the
- * user gesture we use to enter fullscreen, and then we hand off to the
- * ship-select menu — which therefore opens already in fullscreen.
+ * Title / boot screen (VECTOR DRIFT). Styled as a red "initialising systems"
+ * loader. A tap anywhere is the user gesture we use to enter fullscreen before
+ * handing off to the menu — which therefore opens already in fullscreen.
  */
 export class Splash {
   private root: HTMLDivElement;
 
   constructor(container: HTMLElement, private onPlay: () => void) {
     this.root = document.createElement("div");
-    this.root.className = "splash overlay";
+    this.root.className = "vd-splash overlay";
     this.root.innerHTML = `
-      <div class="splash-inner">
-        <h1 class="logo big">DRIFT<span>RACER</span></h1>
-        <p class="tagline">anti-grav drift racing</p>
-        <button class="splash-start">PLAY</button>
-        <p class="splash-hint">best in landscape · headphones recommended</p>
+      <div class="vd-splash-tag">
+        <div class="id">⊢ VD_88</div>
+        <div class="bars vd-hatch-lime"></div>
       </div>
-      <div class="splash-version">build ${__BUILD_ID__}</div>`;
+      <div class="vd-splash-flag"></div>
+      <span class="vd-side-label" style="top:18vh;right:2.4vh">SYSTEMS · ONLINE</span>
+      <span class="vd-plus" style="top:7vh;left:38%">+</span>
+      <span class="vd-plus" style="bottom:30vh;right:8%">+</span>
+      <span class="vd-plus" style="top:42vh;left:6%">+</span>
+
+      <div class="vd-splash-center">
+        ${logoMark()}
+        <h1 class="vd-wordmark">VECTOR DRIFT</h1>
+        <p class="vd-jp">ベクタードリフト</p>
+        <p class="vd-tapstart">▶ PRESS TO START</p>
+      </div>
+
+      <div class="vd-splash-foot">
+        <div class="vd-init">
+          <div class="glyph"></div>
+          <div>
+            <span class="en">INITIALIZING SYSTEMS</span>
+            <span class="jp">システムを初期化しています</span>
+          </div>
+        </div>
+        <div class="vd-progress">
+          <span class="chev">▶▶ ›</span>
+          <div class="vd-bar"><i></i></div>
+          <span class="vd-pct">100%</span>
+        </div>
+      </div>
+      <div class="vd-build">build ${__BUILD_ID__}</div>`;
     container.appendChild(this.root);
 
-    this.root
-      .querySelector<HTMLButtonElement>(".splash-start")!
-      .addEventListener("click", () => this.play());
+    // The whole screen is the start button.
+    this.root.addEventListener("click", () => this.play());
   }
 
   private play(): void {
