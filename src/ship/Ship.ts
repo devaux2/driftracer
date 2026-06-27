@@ -46,10 +46,6 @@ export class Ship {
   verticalVel = 0;
   airborne = false;
 
-  /** Throttle cap (0..1) — scales the cruising top speed. 1 for the player;
-   * bots set their own so they run at different paces. */
-  speedCap = 1;
-
   // --- feel state (read by HUD / effects) ---
   speed = 0;
   drifting = false;
@@ -212,7 +208,7 @@ export class Ship {
     // up the speed you carry through a slide. ---
     speed = this.velocity.length();
     const boosting = this.boostTimer > 0 && !this.airborne;
-    const targetSpeed = boosting ? BOOST_PAD_SPEED : this.stats.maxSpeed * this.speedCap;
+    const targetSpeed = boosting ? BOOST_PAD_SPEED : this.stats.maxSpeed;
     let thrust = boosting ? this.stats.thrust * 3 : this.stats.thrust;
     if (this.airborne) thrust *= 0.15;
     let newSpeed = speed;

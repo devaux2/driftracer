@@ -8,8 +8,6 @@ import { neutralControl, type ControlState } from "../input/types";
 /** Per-bot driving personality. Combined with the random ship choice, this is
  * what gives each opponent a recognisable, signature feel over a race. */
 export interface BotProfile {
-  /** Throttle cap (0..1) — overall pace. */
-  pace: number;
   /** How far ahead it aims (fraction of lap): low = hugs the line, high = cuts
    * corners on a smooth racing line. */
   lookahead: number;
@@ -29,7 +27,6 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 export function randomBotProfile(halfWidth: number): BotProfile {
   const sloppy = Math.random() < 0.5;
   return {
-    pace: rand(0.82, 1.0),
     lookahead: rand(0.009, 0.022),
     steerGain: rand(1.8, 3.4),
     lane: rand(-1, 1) * (halfWidth - 8),
@@ -40,8 +37,9 @@ export function randomBotProfile(halfWidth: number): BotProfile {
 
 /**
  * A basic AI opponent: a {@link Ship} steered to follow the racing line, with a
- * per-bot {@link BotProfile} so each one drives with its own character — pace,
- * how much it cuts corners, how sharply it steers, and how much it wanders.
+ * per-bot {@link BotProfile} so each one drives with its own character — how much
+ * it cuts corners, how sharply it steers, and how much it wanders. Pace comes
+ * from its (random) ship's real stats, same balance as the player.
  */
 export class Bot {
   readonly ship: Ship;
@@ -54,7 +52,6 @@ export class Bot {
     this.ship = new Ship(scene, spec);
     this.name = name;
     this.profile = profile;
-    this.ship.speedCap = profile.pace;
   }
 
   placeAtStart(pos: Vector3, forward: Vector3): void {
