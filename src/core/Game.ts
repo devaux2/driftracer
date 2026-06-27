@@ -118,8 +118,10 @@ export class Game {
     grid.gridRatio = 12;
     grid.majorUnitFrequency = 5;
     grid.mainColor = new Color3(0.02, 0.02, 0.08);
-    grid.lineColor = new Color3(0.1, 0.35, 0.7);
-    grid.opacity = 0.6;
+    // Dim + faint so the background reads as distant depth, not the main grid —
+    // the crosshatch on the track itself is the one that should stand out.
+    grid.lineColor = new Color3(0.05, 0.12, 0.24);
+    grid.opacity = 0.25;
     floor.material = grid;
   }
 

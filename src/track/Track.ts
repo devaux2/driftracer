@@ -122,7 +122,7 @@ export class Track {
     const mat = new StandardMaterial("roadMat", scene);
     mat.diffuseTexture = tex;
     mat.emissiveTexture = tex; // make the grid lines self-lit so they read in fog
-    mat.emissiveColor = new Color3(0.4, 0.45, 0.55);
+    mat.emissiveColor = new Color3(0.55, 0.6, 0.7);
     mat.specularColor = new Color3(0.04, 0.04, 0.06);
     this.road.material = mat;
 
@@ -130,25 +130,19 @@ export class Track {
     this.buildStartLine(scene);
   }
 
-  /** A single grid/crosshatch cell that tiles into a continuous glowing grid. */
+  /** The most basic crosshatch: one cell with bright lines on two edges that
+   * tiles into a continuous square grid across the track. */
   private makeGridTexture(scene: Scene): DynamicTexture {
-    const s = 128;
-    // generateMipMaps = true + anisotropic filtering kills the shimmer/moiré the
-    // tiled grid would otherwise have at grazing angles down the track.
+    const s = 64;
+    // mipmaps + anisotropy keep it clean at grazing angles down the track.
     const tex = new DynamicTexture("roadGrid", { width: s, height: s }, scene, true);
     tex.anisotropicFilteringLevel = 8;
     const ctx = tex.getContext() as CanvasRenderingContext2D;
-    // dark surface
-    ctx.fillStyle = "#070a16";
+    ctx.fillStyle = "#0a0e1c"; // dark cell
     ctx.fillRect(0, 0, s, s);
-    // bright primary grid lines on two edges → continuous lines once tiled
-    ctx.fillStyle = "#45a8e8";
-    ctx.fillRect(0, 0, s, 4);
-    ctx.fillRect(0, 0, 4, s);
-    // secondary crosshatch through the middle → denser reference
-    ctx.fillStyle = "#1d3e5e";
-    ctx.fillRect(0, s / 2 - 1, s, 2);
-    ctx.fillRect(s / 2 - 1, 0, 2, s);
+    ctx.fillStyle = "#3aa6e6"; // single-weight grid lines
+    ctx.fillRect(0, 0, s, 3); // top edge
+    ctx.fillRect(0, 0, 3, s); // left edge
     tex.update();
     tex.wrapU = 1; // WRAP
     tex.wrapV = 1;

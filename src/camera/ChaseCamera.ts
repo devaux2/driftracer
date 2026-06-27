@@ -11,10 +11,10 @@ import type { Ship } from "../ship/Ship";
 export class ChaseCamera {
   readonly camera: UniversalCamera;
 
-  private readonly baseDistance = 13;
-  private readonly baseHeight = 5.5;
+  private readonly baseDistance = 8;
+  private readonly baseHeight = 3.6;
   private readonly baseFov = 0.9;
-  private readonly maxFov = 1.25;
+  private readonly maxFov = 1.3;
 
   private readonly smoothedPos = new Vector3();
   private initialized = false;
@@ -31,12 +31,14 @@ export class ChaseCamera {
   update(dt: number, ship: Ship): void {
     const ratio = ship.speedRatio;
 
-    // Desired camera position: behind + above the ship, pushed back with speed.
-    const back = this.baseDistance + ratio * 4;
+    // Desired camera position: close behind + just above the ship. We pull IN
+    // slightly with speed (not out) so the ground rushes past faster — moving
+    // the camera away at speed kills the sense of speed.
+    const back = this.baseDistance - ratio * 1.5;
     const forward = new Vector3(Math.sin(ship.yaw), 0, Math.cos(ship.yaw));
     const desired = ship.position
       .subtract(forward.scale(back))
-      .add(new Vector3(0, this.baseHeight + ratio * 1.5, 0));
+      .add(new Vector3(0, this.baseHeight, 0));
 
     if (!this.initialized) {
       this.smoothedPos.copyFrom(desired);
