@@ -76,6 +76,8 @@ export class Ship {
   trackT = 0;
   bestLapMs: number | null = null;
   currentLapMs = 0;
+  /** Time of the most recently completed lap (ms), or null. */
+  lastLapMs: number | null = null;
 
   /** Total race progress (lap + position around the loop) for ranking racers. */
   get progress(): number {
@@ -293,6 +295,7 @@ export class Ship {
     // crossing the start line (t wraps from ~1 back to ~0) counts a lap
     if (this.lastT > 0.8 && sample.t < 0.2) {
       if (this.lap > 0) {
+        this.lastLapMs = this.currentLapMs;
         if (this.bestLapMs == null || this.currentLapMs < this.bestLapMs) {
           this.bestLapMs = this.currentLapMs;
         }

@@ -11,7 +11,7 @@ interface GameMode {
 
 const MODES: GameMode[] = [
   { id: "quick", name: "QUICK RACE", desc: "Single race vs 11 rivals on Neon Circuit", playable: true },
-  { id: "time", name: "TIME ATTACK", desc: "Beat the clock, chase your ghost", playable: false },
+  { id: "time", name: "TIME ATTACK", desc: "Beat the clock, chase your ghost", playable: true },
   { id: "gp", name: "GRAND PRIX", desc: "A championship cup of races", playable: false },
   { id: "mp", name: "MULTIPLAYER", desc: "Race friends online", playable: false },
 ];

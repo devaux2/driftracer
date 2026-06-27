@@ -17,15 +17,32 @@ import { Menu } from "../ui/Menu";
 import { Splash } from "../ui/Splash";
 import { Bot, randomBotProfile } from "../race/Bot";
 import { Minimap } from "../race/Minimap";
+import { Ghost } from "../race/Ghost";
+import { loadRecord, saveRecord, type GhostFrame } from "../race/records";
+import { Results } from "../ui/Results";
 import { getTrackById } from "../config/tracks";
 import { RACER_NAMES, SHIPS, type ShipSpec } from "../config/ships";
 
-const RACER_COUNT = 12; // player + 11 bots
+const RACER_COUNT = 12; // player + 11 bots (quick race)
+const RACE_LAPS = 3;
+const COUNTDOWN = 3; // seconds (3-2-1)
+const GHOST_SAMPLE = 0.033; // ~30 fps recording
 
+type RaceMode = "quick" | "time";
 type GameMode = "menu" | "racing";
+type RacePhase = "countdown" | "running" | "finished";
 
 const PAD_TRIGGER_RADIUS = 8;
 const PAD_COOLDOWN = 1.5;
+
+function fmtTime(ms: number | null): string {
+  if (ms == null) return "--:--.--";
+  const t = ms / 1000;
+  const m = Math.floor(t / 60);
+  const s = Math.floor(t % 60);
+  const cs = Math.floor((t * 100) % 100);
+  return `${m}:${s.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`;
+}
 
 export class Game {
   private engine: Engine;
@@ -36,12 +53,31 @@ export class Game {
   private hud: HUD;
   private menu: Menu;
   private minimap: Minimap;
+  private results: Results;
+  private ghost: Ghost;
 
   private track: Track;
   private ship: Ship | null = null;
   private bots: Bot[] = [];
 
   private mode: GameMode = "menu";
+  private phase: RacePhase = "countdown";
+  private raceMode: RaceMode = "quick";
+  private countdownT = 0;
+  private goFlashT = 0;
+  private raceTimeMs = 0;
+  private prevLap = 0;
+
+  // ghost recording (time attack)
+  private ghostBuffer: GhostFrame[] = [];
+  private ghostSampleT = 0;
+  private recordBestMs: number | null = null;
+  private recordBeaten = false;
+
+  // for the Retry button
+  private lastSpec: ShipSpec = SHIPS[0];
+  private lastUseGyro = false;
+
   private lastSteer = 0;
 
   constructor(canvas: HTMLCanvasElement, private container: HTMLElement) {
@@ -61,9 +97,11 @@ export class Game {
     this.hud.show(false);
     this.minimap = new Minimap(this.container, this.track);
     this.minimap.show(false);
+    this.results = new Results(this.container);
+    this.ghost = new Ghost(this.scene);
 
-    this.menu = new Menu(this.container, this.input.isTouchDevice, (ship, _mode, useGyro) =>
-      this.startRace(ship, useGyro)
+    this.menu = new Menu(this.container, this.input.isTouchDevice, (ship, mode, useGyro) =>
+      this.startRace(ship, mode === "time" ? "time" : "quick", useGyro)
     );
     this.menu.show(false); // hidden until PLAY is clicked on the title screen
 
@@ -133,34 +171,62 @@ export class Game {
     floor.material = grid;
   }
 
-  private startRace(spec: ShipSpec, useGyro: boolean): void {
+  private startRace(spec: ShipSpec, raceMode: RaceMode, useGyro: boolean): void {
     if (this.ship) this.ship.root.dispose();
     for (const b of this.bots) b.dispose();
     this.bots = [];
 
-    // Build a starting grid AHEAD of the line (so no one falsely crosses it on
-    // frame 1). Slot 0 is furthest ahead (pole); the player takes the last slot
-    // so there's a pack to overtake. Bots get random ships + unique names.
-    const names = [...RACER_NAMES].sort(() => Math.random() - 0.5);
+    this.raceMode = raceMode;
+    this.lastSpec = spec;
+    this.lastUseGyro = useGyro;
+    this.results.hide();
+
     const fwd = this.track.startForward;
     const right = new Vector3(fwd.z, 0, -fwd.x);
-    const gridPos = (slot: number): Vector3 => {
-      const row = Math.floor(slot / 2);
-      const col = slot % 2;
-      const ahead = 10 + (RACER_COUNT / 2 - 1 - row) * 16;
-      const lateral = (col === 0 ? -1 : 1) * 18;
-      return this.track.startPosition.add(fwd.scale(ahead)).add(right.scale(lateral));
-    };
+    const isTime = raceMode === "time";
 
     this.ship = new Ship(this.scene, spec);
-    this.ship.placeAtStart(gridPos(RACER_COUNT - 1), fwd);
 
-    for (let i = 0; i < RACER_COUNT - 1; i++) {
-      const botSpec = SHIPS[Math.floor(Math.random() * SHIPS.length)];
-      const profile = randomBotProfile(this.track.halfWidth);
-      const bot = new Bot(this.scene, botSpec, names[i] ?? `CPU ${i + 1}`, profile);
-      bot.placeAtStart(gridPos(i), fwd);
-      this.bots.push(bot);
+    if (isTime) {
+      // Solo run: start just ahead of the line, centred — no pack.
+      this.ship.placeAtStart(this.track.startPosition.add(fwd.scale(6)), fwd);
+    } else {
+      // Build a starting grid AHEAD of the line (so no one falsely crosses it on
+      // frame 1). Slot 0 is furthest ahead (pole); the player takes the last slot
+      // so there's a pack to overtake. Bots get random ships + unique names.
+      const names = [...RACER_NAMES].sort(() => Math.random() - 0.5);
+      const gridPos = (slot: number): Vector3 => {
+        const row = Math.floor(slot / 2);
+        const col = slot % 2;
+        const ahead = 10 + (RACER_COUNT / 2 - 1 - row) * 16;
+        const lateral = (col === 0 ? -1 : 1) * 18;
+        return this.track.startPosition.add(fwd.scale(ahead)).add(right.scale(lateral));
+      };
+      this.ship.placeAtStart(gridPos(RACER_COUNT - 1), fwd);
+      for (let i = 0; i < RACER_COUNT - 1; i++) {
+        const botSpec = SHIPS[Math.floor(Math.random() * SHIPS.length)];
+        const profile = randomBotProfile(this.track.halfWidth);
+        const bot = new Bot(this.scene, botSpec, names[i] ?? `CPU ${i + 1}`, profile);
+        bot.placeAtStart(gridPos(i), fwd);
+        this.bots.push(bot);
+      }
+    }
+
+    // Load any persisted best lap + ghost for this craft/course (Time Attack).
+    this.recordBestMs = null;
+    this.recordBeaten = false;
+    this.ghostBuffer = [];
+    this.ghostSampleT = 0;
+    this.ghost.hide();
+    if (isTime) {
+      const rec = loadRecord(this.track.spec.id, spec.id);
+      if (rec) {
+        this.recordBestMs = rec.bestMs;
+        this.ship.bestLapMs = rec.bestMs;
+        this.ghost.setFrames(rec.frames);
+      } else {
+        this.ghost.setFrames([]);
+      }
     }
 
     this.camera.snapTo(this.ship, this.track);
@@ -174,9 +240,19 @@ export class Game {
       this.input.setSteerMode("touch");
     }
 
+    // Race flow: 3-2-1 countdown, then GO.
+    this.phase = "countdown";
+    this.countdownT = COUNTDOWN;
+    this.goFlashT = 0;
+    this.raceTimeMs = 0;
+    this.prevLap = this.ship.lap;
+    this.hud.setTotalLaps(RACE_LAPS);
+    this.hud.showPosition(!isTime);
+    this.hud.setCountdown(String(COUNTDOWN));
+
     this.menu.show(false);
     this.hud.show(true);
-    this.minimap.show(true);
+    this.minimap.show(!isTime);
     this.mode = "racing";
   }
 
@@ -201,7 +277,10 @@ export class Game {
   private returnToMenu(): void {
     this.mode = "menu";
     this.hud.show(false);
+    this.hud.setCountdown(null);
     this.minimap.show(false);
+    this.results.hide();
+    this.ghost.hide();
     this.menu.show(true);
   }
 
@@ -220,25 +299,140 @@ export class Game {
     this.lastSteer = ctrl.steer;
 
     if (this.mode === "racing" && this.ship) {
-      this.ship.update(dt, ctrl, this.track);
-      for (const b of this.bots) b.update(dt, this.track);
-      this.checkPads(dt);
-      this.camera.update(dt, this.ship, this.track);
-      this.hud.update(this.ship);
-      this.hud.setPosition(this.playerPosition(), RACER_COUNT);
-      this.minimap.render(
-        this.ship.position,
-        this.bots.map((b) => b.ship.position)
-      );
-      this.speedLines.render(dt, this.ship.speedRatio, this.ship.drifting ? this.ship.driftDir : 0);
-
-      if (ctrl.pause) this.returnToMenu();
+      if (this.phase === "countdown") {
+        this.tickCountdown(dt);
+      } else if (this.phase === "running") {
+        this.tickRunning(dt, ctrl);
+      } else {
+        // finished: hold the wheel, keep the scene alive behind the results.
+        this.camera.update(dt, this.ship, this.track);
+        this.speedLines.render(dt, 0, 0);
+      }
     } else {
-      // Slowly orbit-ish idle: keep the scene alive behind the menu.
+      // Keep the scene alive behind the menu.
       this.speedLines.render(dt, 0, 0);
     }
 
     this.scene.render();
+  }
+
+  /** 3-2-1-GO. The ship is frozen (we don't tick physics) so the timer and
+   * position stay put until GO. */
+  private tickCountdown(dt: number): void {
+    if (!this.ship) return;
+    this.countdownT -= dt;
+    if (this.countdownT <= 0) {
+      this.phase = "running";
+      this.goFlashT = 0.9;
+      this.hud.setCountdown("GO");
+    } else {
+      this.hud.setCountdown(String(Math.ceil(this.countdownT)));
+    }
+    this.camera.update(dt, this.ship, this.track);
+    this.hud.update(this.ship);
+    this.speedLines.render(dt, 0, 0);
+  }
+
+  private tickRunning(dt: number, ctrl: ReturnType<InputManager["update"]>): void {
+    if (!this.ship) return;
+
+    if (this.goFlashT > 0) {
+      this.goFlashT -= dt;
+      if (this.goFlashT <= 0) this.hud.setCountdown(null);
+    }
+
+    this.ship.update(dt, ctrl, this.track);
+    for (const b of this.bots) b.update(dt, this.track);
+    this.checkPads(dt);
+    this.raceTimeMs += dt * 1000;
+
+    // Lap boundary: capture/save the ghost and roll the buffer over.
+    if (this.ship.lap !== this.prevLap) this.onLapComplete();
+
+    if (this.raceMode === "time") {
+      this.ghostSampleT += dt;
+      if (this.ghostSampleT >= GHOST_SAMPLE) {
+        this.ghostSampleT -= GHOST_SAMPLE;
+        this.ghostBuffer.push([
+          this.ship.currentLapMs,
+          this.ship.position.x,
+          this.ship.position.y,
+          this.ship.position.z,
+          this.ship.yaw,
+        ]);
+      }
+      this.ghost.update(this.ship.currentLapMs);
+    }
+
+    this.camera.update(dt, this.ship, this.track);
+    this.hud.update(this.ship);
+    if (this.raceMode === "quick") this.hud.setPosition(this.playerPosition(), RACER_COUNT);
+    this.minimap.render(
+      this.ship.position,
+      this.bots.map((b) => b.ship.position)
+    );
+    this.speedLines.render(dt, this.ship.speedRatio, this.ship.drifting ? this.ship.driftDir : 0);
+
+    if (this.ship.lap >= RACE_LAPS) {
+      this.finishRace();
+      return;
+    }
+    if (ctrl.pause) this.returnToMenu();
+  }
+
+  /** Called the frame a lap counter ticks over. Persists a new ghost/best-lap
+   * for Time Attack, then starts a fresh recording buffer. */
+  private onLapComplete(): void {
+    if (!this.ship) return;
+    const lapMs = this.ship.lastLapMs;
+    if (this.raceMode === "time" && lapMs != null) {
+      if (this.recordBestMs == null || lapMs < this.recordBestMs) {
+        this.recordBestMs = lapMs;
+        this.recordBeaten = true;
+        saveRecord(this.track.spec.id, this.lastSpec.id, { bestMs: lapMs, frames: this.ghostBuffer });
+        this.ghost.setFrames(this.ghostBuffer);
+      }
+    }
+    this.prevLap = this.ship.lap;
+    this.ghostBuffer = [];
+    this.ghostSampleT = 0;
+  }
+
+  private finishRace(): void {
+    if (!this.ship) return;
+    this.phase = "finished";
+    this.hud.setCountdown(null);
+
+    const onRetry = () => this.startRace(this.lastSpec, this.raceMode, this.lastUseGyro);
+    const onMenu = () => this.returnToMenu();
+
+    if (this.raceMode === "time") {
+      const lines = [
+        { label: "BEST LAP", value: fmtTime(this.recordBestMs), highlight: true },
+        { label: "TOTAL TIME", value: fmtTime(this.raceTimeMs) },
+      ];
+      this.results.show(
+        "TIME ATTACK",
+        this.recordBeaten ? "NEW RECORD!" : "RUN COMPLETE",
+        lines,
+        onRetry,
+        onMenu
+      );
+    } else {
+      const pos = this.playerPosition();
+      const lines = [
+        { label: "POSITION", value: `${pos} / ${RACER_COUNT}`, highlight: pos === 1 },
+        { label: "TOTAL TIME", value: fmtTime(this.raceTimeMs) },
+        { label: "BEST LAP", value: fmtTime(this.ship.bestLapMs) },
+      ];
+      this.results.show(
+        pos === 1 ? "WINNER" : "FINISH",
+        `${pos === 1 ? "P1" : "P" + pos} of ${RACER_COUNT}`,
+        lines,
+        onRetry,
+        onMenu
+      );
+    }
   }
 
   private checkPads(dt: number): void {

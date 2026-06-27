@@ -33,6 +33,9 @@ export class HUD {
   private boostEl: HTMLElement;
   private posNumEl: HTMLElement;
   private posTotalEl: HTMLElement;
+  private posPanel: HTMLElement;
+  private countdownEl: HTMLElement;
+  private totalLaps = 3;
 
   constructor(container: HTMLElement) {
     this.root = document.createElement("div");
@@ -63,7 +66,9 @@ export class HUD {
           </div>
           <div class="speed-bar"><div class="speed-fill"></div></div>
         </div>
-      </div>`;
+      </div>
+
+      <div class="countdown"></div>`;
     container.appendChild(this.root);
 
     this.speedEl = this.root.querySelector(".kph")!;
@@ -75,13 +80,38 @@ export class HUD {
     this.boostEl = this.root.querySelector(".ind.boost")!;
     this.posNumEl = this.root.querySelector(".pos-num")!;
     this.posTotalEl = this.root.querySelector(".pos-total")!;
+    this.posPanel = this.root.querySelector(".pos-panel")!;
+    this.countdownEl = this.root.querySelector(".countdown")!;
+  }
+
+  setTotalLaps(n: number): void {
+    this.totalLaps = n;
+  }
+
+  /** Show a countdown string (e.g. "3", "GO"), or null to clear it. */
+  setCountdown(text: string | null): void {
+    if (text == null) {
+      this.countdownEl.style.display = "none";
+      return;
+    }
+    this.countdownEl.textContent = text;
+    this.countdownEl.style.display = "";
+    // restart the pop animation
+    this.countdownEl.classList.remove("pop");
+    void this.countdownEl.offsetWidth;
+    this.countdownEl.classList.add("pop");
+  }
+
+  showPosition(visible: boolean): void {
+    this.posPanel.style.display = visible ? "" : "none";
   }
 
   update(ship: Ship): void {
     this.speedEl.textContent = String(ship.speedKph);
     // speedRatio caps at 1.2 (boost headroom); normalise so the bar tops out then.
     this.speedBar.style.width = `${Math.min(100, (ship.speedRatio / 1.2) * 100)}%`;
-    this.lapEl.textContent = String(Math.max(1, ship.lap)).padStart(2, "0");
+    const lap = Math.min(ship.lap + 1, this.totalLaps);
+    this.lapEl.textContent = `${lap}/${this.totalLaps}`;
     this.timeEl.innerHTML = digitize(fmtTime(ship.currentLapMs));
     this.bestEl.innerHTML = `BEST ${digitize(fmtTime(ship.bestLapMs))}`;
     this.driftEl.classList.toggle("active", ship.drifting);
