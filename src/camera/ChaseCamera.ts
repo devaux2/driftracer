@@ -14,7 +14,9 @@ export class ChaseCamera {
   private readonly baseDistance = 8;
   private readonly baseHeight = 3.6;
   private readonly baseFov = 0.9;
-  private readonly maxFov = 1.3;
+  // Only a slight widening at speed — a big FOV jump (esp. on boost) shrinks the
+  // ship into the distance. Speed reads from the close camera + grid + streaks.
+  private readonly maxFov = 1.04;
 
   private readonly smoothedPos = new Vector3();
   private initialized = false;
@@ -50,8 +52,9 @@ export class ChaseCamera {
     }
     this.camera.position.copyFrom(this.smoothedPos);
 
-    // Look a bit ahead of the ship, biased toward drift direction.
-    const lookAhead = forward.scale(8 + ratio * 6);
+    // Look a bit ahead of the ship, biased toward drift direction. Kept modest
+    // with speed so the ship doesn't sink small into the bottom of the frame.
+    const lookAhead = forward.scale(7 + ratio * 2);
     const driftBias = new Vector3(Math.cos(ship.yaw), 0, -Math.sin(ship.yaw)).scale(
       ship.drifting ? ship.driftDir * 5 : 0
     );

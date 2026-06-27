@@ -298,15 +298,14 @@ body,
   margin-top: 0.05rem;
 }
 
-/* speedometer, top-right (clear of the ship + the on-screen controls) */
+/* speedometer, bottom-left */
 .speed-panel {
-  top: max(0.9rem, env(safe-area-inset-top));
-  right: max(1.4rem, env(safe-area-inset-right));
+  bottom: max(0.9rem, env(safe-area-inset-bottom));
+  left: max(1.4rem, env(safe-area-inset-left));
   transform: skewX(-13deg);
   padding: 0.4rem 1.6rem 0.6rem;
   text-align: center;
-  border-left: none;
-  border-right: 3px solid var(--accent);
+  border-left: 3px solid var(--accent);
 }
 .indicators {
   display: flex;
