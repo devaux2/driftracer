@@ -287,4 +287,22 @@ export class Track {
   get length(): number {
     return this.totalLen;
   }
+
+  /** Centre-line point at progress t (0..1, wraps), with optional lateral offset
+   * in world units. Used by the bot AI to aim down the track. */
+  pointAt(t: number, lateralOffset = 0): Vector3 {
+    const n = this.centers.length;
+    let tt = t - Math.floor(t); // wrap into [0,1)
+    const f = tt * n;
+    const i = Math.floor(f) % n;
+    const frac = f - Math.floor(f);
+    const p = Vector3.Lerp(this.centers[i], this.centers[(i + 1) % n], frac);
+    if (lateralOffset !== 0) p.addInPlace(this.rights[i].scale(lateralOffset));
+    return p;
+  }
+
+  /** Flat XZ centre-line loop, for drawing the minimap outline. */
+  centerlineXZ(): { x: number; z: number }[] {
+    return this.centers.map((c) => ({ x: c.x, z: c.z }));
+  }
 }

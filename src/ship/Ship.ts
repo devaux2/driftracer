@@ -72,8 +72,15 @@ export class Ship {
   // --- progress ---
   lap = 0;
   private lastT = 0;
+  /** Normalized progress around the loop (0..1) at the last sample. */
+  trackT = 0;
   bestLapMs: number | null = null;
   currentLapMs = 0;
+
+  /** Total race progress (lap + position around the loop) for ranking racers. */
+  get progress(): number {
+    return this.lap + this.trackT;
+  }
 
   constructor(scene: Scene, spec: ShipSpec) {
     this.spec = spec;
@@ -281,6 +288,7 @@ export class Ship {
   }
 
   private updateProgress(sample: { t: number }, dt: number): void {
+    this.trackT = sample.t;
     this.currentLapMs += dt * 1000;
     // crossing the start line (t wraps from ~1 back to ~0) counts a lap
     if (this.lastT > 0.8 && sample.t < 0.2) {

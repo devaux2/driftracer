@@ -290,13 +290,53 @@ body,
   position: relative;
 }
 
+/* position tracker, top-left */
+.pos-panel {
+  top: max(0.9rem, env(safe-area-inset-top));
+  left: max(1.4rem, env(safe-area-inset-left));
+  padding: 0.15rem 1rem 0.35rem;
+}
+.pos-panel .panel-skew {
+  display: flex;
+  align-items: baseline;
+}
+.pos-num {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
+  font-size: 2.5rem;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 0 0 16px rgba(22, 224, 255, 0.75);
+}
+.pos-total {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  opacity: 0.6;
+  margin-left: 0.15rem;
+}
+
+/* minimap, top-right */
+.minimap {
+  position: absolute;
+  top: max(0.9rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  width: 150px;
+  height: 150px;
+  z-index: 10;
+  background: rgba(8, 10, 26, 0.45);
+  clip-path: var(--chamfer);
+  backdrop-filter: blur(3px);
+  pointer-events: none;
+}
+
 /* lap + times: a wide, flat bar across the top-centre of the screen */
 .lap-panel {
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: min(620px, 84vw);
-  padding: 0.35rem 1.8rem 0.5rem;
+  width: min(440px, 54vw);
+  padding: 0.35rem 1.4rem 0.5rem;
   clip-path: polygon(0 0, 100% 0, 100% 100%, 24px 100%, 0 calc(100% - 16px));
 }
 /* 3 columns: LAP (left) · TIME (dead-centre) · BEST (right). The 1fr sides are

@@ -15,8 +15,12 @@ import { SpeedLines } from "../effects/SpeedLines";
 import { HUD } from "../ui/HUD";
 import { Menu } from "../ui/Menu";
 import { Splash } from "../ui/Splash";
+import { Bot } from "../race/Bot";
+import { Minimap } from "../race/Minimap";
 import { getTrackById } from "../config/tracks";
-import type { ShipSpec } from "../config/ships";
+import { RACER_NAMES, SHIPS, type ShipSpec } from "../config/ships";
+
+const RACER_COUNT = 12; // player + 11 bots
 
 type GameMode = "menu" | "racing";
 
@@ -31,9 +35,11 @@ export class Game {
   private speedLines: SpeedLines;
   private hud: HUD;
   private menu: Menu;
+  private minimap: Minimap;
 
   private track: Track;
   private ship: Ship | null = null;
+  private bots: Bot[] = [];
 
   private mode: GameMode = "menu";
   private lastSteer = 0;
@@ -53,6 +59,8 @@ export class Game {
     this.speedLines = new SpeedLines(this.container);
     this.hud = new HUD(this.container);
     this.hud.show(false);
+    this.minimap = new Minimap(this.container, this.track);
+    this.minimap.show(false);
 
     this.menu = new Menu(this.container, this.input.isTouchDevice, (ship, useGyro) =>
       this.startRace(ship, useGyro)
@@ -126,12 +134,35 @@ export class Game {
   }
 
   private startRace(spec: ShipSpec, useGyro: boolean): void {
-    if (this.ship) {
-      this.ship.root.dispose();
-      this.ship = null;
-    }
+    if (this.ship) this.ship.root.dispose();
+    for (const b of this.bots) b.dispose();
+    this.bots = [];
+
+    // Build a starting grid AHEAD of the line (so no one falsely crosses it on
+    // frame 1). Slot 0 is furthest ahead (pole); the player takes the last slot
+    // so there's a pack to overtake. Bots get random ships + unique names.
+    const names = [...RACER_NAMES].sort(() => Math.random() - 0.5);
+    const fwd = this.track.startForward;
+    const right = new Vector3(fwd.z, 0, -fwd.x);
+    const gridPos = (slot: number): Vector3 => {
+      const row = Math.floor(slot / 2);
+      const col = slot % 2;
+      const ahead = 10 + (RACER_COUNT / 2 - 1 - row) * 16;
+      const lateral = (col === 0 ? -1 : 1) * 18;
+      return this.track.startPosition.add(fwd.scale(ahead)).add(right.scale(lateral));
+    };
+
     this.ship = new Ship(this.scene, spec);
-    this.ship.placeAtStart(this.track.startPosition, this.track.startForward);
+    this.ship.placeAtStart(gridPos(RACER_COUNT - 1), fwd);
+
+    for (let i = 0; i < RACER_COUNT - 1; i++) {
+      const botSpec = SHIPS[Math.floor(Math.random() * SHIPS.length)];
+      const lane = (Math.random() * 2 - 1) * (this.track.halfWidth - 8);
+      const bot = new Bot(this.scene, botSpec, names[i] ?? `CPU ${i + 1}`, lane);
+      bot.placeAtStart(gridPos(i), fwd);
+      this.bots.push(bot);
+    }
+
     this.camera.snapTo(this.ship, this.track);
 
     void this.enterFullscreen();
@@ -145,6 +176,7 @@ export class Game {
 
     this.menu.show(false);
     this.hud.show(true);
+    this.minimap.show(true);
     this.mode = "racing";
   }
 
@@ -169,7 +201,17 @@ export class Game {
   private returnToMenu(): void {
     this.mode = "menu";
     this.hud.show(false);
+    this.minimap.show(false);
     this.menu.show(true);
+  }
+
+  /** Race position = 1 + the number of racers further around the track. */
+  private playerPosition(): number {
+    if (!this.ship) return 1;
+    const me = this.ship.progress;
+    let ahead = 0;
+    for (const b of this.bots) if (b.ship.progress > me) ahead++;
+    return ahead + 1;
   }
 
   private frame(): void {
@@ -179,9 +221,15 @@ export class Game {
 
     if (this.mode === "racing" && this.ship) {
       this.ship.update(dt, ctrl, this.track);
+      for (const b of this.bots) b.update(dt, this.track);
       this.checkPads(dt);
       this.camera.update(dt, this.ship, this.track);
       this.hud.update(this.ship);
+      this.hud.setPosition(this.playerPosition(), RACER_COUNT);
+      this.minimap.render(
+        this.ship.position,
+        this.bots.map((b) => b.ship.position)
+      );
       this.speedLines.render(dt, this.ship.speedRatio, this.ship.drifting ? this.ship.driftDir : 0);
 
       if (ctrl.pause) this.returnToMenu();

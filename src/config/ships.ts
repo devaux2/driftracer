@@ -137,3 +137,23 @@ export const SHIPS: ShipSpec[] = [
 export function getShipById(id: string): ShipSpec {
   return SHIPS.find((s) => s.id === id) ?? SHIPS[0];
 }
+
+/** Pool of opponent racer names (bots pick random unique ones). */
+export const RACER_NAMES: string[] = [
+  "NOVA",
+  "RAZE",
+  "VOLT",
+  "ZephyR",
+  "HEX",
+  "ONYX",
+  "BLAZE",
+  "KILO",
+  "DRIFT KING",
+  "MAVERICK",
+  "GHOST",
+  "TALON",
+  "VIPER",
+  "ECHO",
+  "CIPHER",
+  "ROGUE",
+];

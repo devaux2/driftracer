@@ -31,11 +31,19 @@ export class HUD {
   private bestEl: HTMLElement;
   private driftEl: HTMLElement;
   private boostEl: HTMLElement;
+  private posNumEl: HTMLElement;
+  private posTotalEl: HTMLElement;
 
   constructor(container: HTMLElement) {
     this.root = document.createElement("div");
     this.root.className = "hud";
     this.root.innerHTML = `
+      <div class="hud-panel pos-panel">
+        <div class="panel-skew">
+          <span class="pos-num">1</span><span class="pos-total">/12</span>
+        </div>
+      </div>
+
       <div class="hud-panel lap-panel">
         <div class="panel-skew">
           <div class="lap-row"><span class="lap-label">LAP</span><span class="lap-num">01</span></div>
@@ -65,6 +73,8 @@ export class HUD {
     this.bestEl = this.root.querySelector(".time-best")!;
     this.driftEl = this.root.querySelector(".ind.drift")!;
     this.boostEl = this.root.querySelector(".ind.boost")!;
+    this.posNumEl = this.root.querySelector(".pos-num")!;
+    this.posTotalEl = this.root.querySelector(".pos-total")!;
   }
 
   update(ship: Ship): void {
@@ -76,6 +86,11 @@ export class HUD {
     this.bestEl.innerHTML = `BEST ${digitize(fmtTime(ship.bestLapMs))}`;
     this.driftEl.classList.toggle("active", ship.drifting);
     this.boostEl.classList.toggle("active", ship.boostTimer > 0);
+  }
+
+  setPosition(position: number, total: number): void {
+    this.posNumEl.textContent = String(position);
+    this.posTotalEl.textContent = `/${total}`;
   }
 
   show(v: boolean): void {
