@@ -60,9 +60,10 @@ export class ChaseCamera {
       this.camYaw += d * Math.min(1, CAM_YAW_EASE * dt);
     }
 
-    // Position close behind + just above, along the travel direction. Pull IN
-    // slightly with speed (not out) so the ground rushes past faster.
-    const back = this.baseDistance - ratio * 1.5;
+    // Constant chase distance — framing (ship at bottom-centre) stays the same
+    // at every speed. Speed reads from FOV/grid/streaks, not by yanking the
+    // camera in (which floated the ship up the frame at top speed).
+    const back = this.baseDistance;
     const forward = new Vector3(Math.sin(this.camYaw), 0, Math.cos(this.camYaw));
     const desired = ship.position
       .subtract(forward.scale(back))
