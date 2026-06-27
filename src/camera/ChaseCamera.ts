@@ -15,8 +15,8 @@ const CAM_YAW_EASE = 5;
 export class ChaseCamera {
   readonly camera: UniversalCamera;
 
-  private readonly baseDistance = 8;
-  private readonly baseHeight = 3.6;
+  private readonly baseDistance = 4.5;
+  private readonly baseHeight = 2.6;
   private readonly baseFov = 0.9;
   // Only a slight widening at speed — a big FOV jump (esp. on boost) shrinks the
   // ship into the distance. Speed reads from the close camera + grid + streaks.
@@ -81,7 +81,7 @@ export class ChaseCamera {
     }
     // Never let the camera sink to/under the deck — e.g. when it lags behind a
     // fast boost up a rise. Keep it clearly above the ship.
-    const minY = ship.position.y + 2.5;
+    const minY = ship.position.y + 1.5;
     if (this.smoothedPos.y < minY) this.smoothedPos.y = minY;
 
     this.camera.position.copyFrom(this.smoothedPos);
