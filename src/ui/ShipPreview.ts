@@ -5,6 +5,7 @@ import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
@@ -21,6 +22,7 @@ export class ShipPreview {
   private engine: Engine;
   private scene: Scene;
   private hull: TransformNode | null = null;
+  private ring: Mesh;
   private active = false;
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -36,6 +38,16 @@ export class ShipPreview {
     hemi.groundColor = new Color3(0.1, 0.1, 0.16);
     const dir = new DirectionalLight("pd", new Vector3(-0.5, -0.6, 0.6), this.scene);
     dir.intensity = 0.9;
+
+    // Neon platform ring beneath the ship (garage). Part of the 3D scene so it
+    // always sits correctly *behind* the craft.
+    this.ring = MeshBuilder.CreateTorus("ring", { diameter: 10, thickness: 0.16, tessellation: 72 }, this.scene);
+    this.ring.position.y = -1.4;
+    const ringMat = new StandardMaterial("ringMat", this.scene);
+    ringMat.emissiveColor = new Color3(1, 0.12, 0.36);
+    ringMat.disableLighting = true;
+    this.ring.material = ringMat;
+    this.ring.setEnabled(false);
 
     this.engine.runRenderLoop(() => {
       if (!this.active) return;
@@ -77,6 +89,11 @@ export class ShipPreview {
     for (const m of [body, nose, fin, glow]) m.parent = root;
     root.rotation.y = -0.5;
     this.hull = root;
+  }
+
+  /** Show/hide the neon platform ring (garage only). */
+  setRing(on: boolean): void {
+    this.ring.setEnabled(on);
   }
 
   /** Start/stop rendering (saves the GPU while the preview is off-screen). */

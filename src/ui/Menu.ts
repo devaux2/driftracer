@@ -75,6 +75,7 @@ export class Menu {
     if (this.screen === "main") this.renderMain();
     else this.renderGarage();
     this.preview.setShip(getShipById(this.selectedShipId));
+    this.preview.setRing(this.screen === "garage");
     this.positionPreview();
   }
 
@@ -257,9 +258,7 @@ export class Menu {
             <span class="corner"></span>
           </aside>
 
-          <div class="vd-garage-hero">
-            <div class="vd-ring"></div>
-          </div>
+          <div class="vd-garage-hero"></div>
 
           <div class="vd-sidenav">
             <span class="tab">${ship.code}</span>

@@ -698,22 +698,6 @@
   place-items: center;
   min-width: 0;
 }
-.vd-ring {
-  position: absolute;
-  bottom: 12%;
-  width: min(70%, 60vh);
-  aspect-ratio: 2.6 / 1;
-  border-radius: 50%;
-  border: 2px solid var(--vd-pink);
-  box-shadow: 0 0 40px rgba(255, 30, 90, 0.6), inset 0 0 30px rgba(255, 30, 90, 0.35);
-}
-.vd-garage-hero .vd-ship {
-  position: relative;
-  width: min(86%, 74vh);
-  transform: rotate(-6deg);
-  filter: drop-shadow(0 20px 36px rgba(0, 0, 0, 0.7))
-    drop-shadow(0 0 26px rgba(255, 30, 90, 0.4));
-}
 
 /* right mini side-nav */
 .vd-sidenav {
