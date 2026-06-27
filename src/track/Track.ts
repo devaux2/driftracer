@@ -111,38 +111,47 @@ export class Track {
       { pathArray: [left, right], closeArray: false, closePath: false },
       scene
     );
+    const tex = this.makeGridTexture(scene);
+    // Tile the grid by world size so cells stay ~square and lots of lines rush
+    // past at speed (the frame-of-reference the flat surface was missing).
+    const CELL = 7;
+    // On this ribbon, U runs across the width and V along the length.
+    tex.uScale = (this.halfWidth * 2) / CELL;
+    tex.vScale = this.totalLen / CELL;
+
     const mat = new StandardMaterial("roadMat", scene);
-    mat.diffuseTexture = this.makeRoadTexture(scene);
-    mat.specularColor = new Color3(0.05, 0.05, 0.08);
-    mat.emissiveColor = new Color3(0.02, 0.02, 0.05);
+    mat.diffuseTexture = tex;
+    mat.emissiveTexture = tex; // make the grid lines self-lit so they read in fog
+    mat.emissiveColor = new Color3(0.4, 0.45, 0.55);
+    mat.specularColor = new Color3(0.04, 0.04, 0.06);
     this.road.material = mat;
 
     this.buildEdgeRails(scene);
     this.buildStartLine(scene);
   }
 
-  /** Procedural road texture: dark tarmac with a glowing centre stripe and rungs. */
-  private makeRoadTexture(scene: Scene): DynamicTexture {
-    const w = 256;
-    const h = 1024;
-    const tex = new DynamicTexture("roadTex", { width: w, height: h }, scene, false);
+  /** A single grid/crosshatch cell that tiles into a continuous glowing grid. */
+  private makeGridTexture(scene: Scene): DynamicTexture {
+    const s = 128;
+    // generateMipMaps = true + anisotropic filtering kills the shimmer/moiré the
+    // tiled grid would otherwise have at grazing angles down the track.
+    const tex = new DynamicTexture("roadGrid", { width: s, height: s }, scene, true);
+    tex.anisotropicFilteringLevel = 8;
     const ctx = tex.getContext() as CanvasRenderingContext2D;
-    ctx.fillStyle = "#0c0e1a";
-    ctx.fillRect(0, 0, w, h);
-    // edge lines
-    ctx.fillStyle = "#1c2340";
-    ctx.fillRect(0, 0, 10, h);
-    ctx.fillRect(w - 10, 0, 10, h);
-    // centre stripe
-    ctx.fillStyle = "#16e0ff";
-    ctx.globalAlpha = 0.5;
-    ctx.fillRect(w / 2 - 2, 0, 4, h);
-    ctx.globalAlpha = 1;
-    // dashes for speed reference
-    ctx.fillStyle = "#33406b";
-    for (let y = 0; y < h; y += 64) ctx.fillRect(w / 2 - 30, y, 60, 18);
+    // dark surface
+    ctx.fillStyle = "#070a16";
+    ctx.fillRect(0, 0, s, s);
+    // bright primary grid lines on two edges → continuous lines once tiled
+    ctx.fillStyle = "#45a8e8";
+    ctx.fillRect(0, 0, s, 4);
+    ctx.fillRect(0, 0, 4, s);
+    // secondary crosshatch through the middle → denser reference
+    ctx.fillStyle = "#1d3e5e";
+    ctx.fillRect(0, s / 2 - 1, s, 2);
+    ctx.fillRect(s / 2 - 1, 0, 2, s);
     tex.update();
-    tex.wrapV = 1; // WRAP
+    tex.wrapU = 1; // WRAP
+    tex.wrapV = 1;
     return tex;
   }
 

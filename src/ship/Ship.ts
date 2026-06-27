@@ -17,6 +17,13 @@ const BOOST_DURATION = 1.4;
 const JUMP_VELOCITY = 42; // base launch speed; ramps scale this by their power
 const DRIFT_REWARD_TIME = 1.1; // seconds of drift to earn a mini-boost
 const WALL_RESTITUTION = 0.3;
+/** How quickly raw steer input eases toward the target (per second). Lower =
+ * softer, more progressive turn-in; this is what stops side-to-side snapping. */
+const STEER_EASE = 8;
+/** How quickly the drift state blends in/out (grip, rotation, slip). */
+const DRIFT_EASE = 6;
+/** How quickly the visual slip/yaw kick eases in/out. */
+const SLIP_EASE = 7;
 /** How far below the road surface counts as "fallen off" → respawn. */
 const FALL_LIMIT = 16;
 
@@ -41,6 +48,12 @@ export class Ship {
   boostTimer = 0;
   /** Flashes briefly after a respawn so the HUD/effects can react. */
   respawnFlash = 0;
+  /** Eased steer input (-1..1) — the actual value the physics steers with. */
+  private steerInput = 0;
+  /** Eased 0..1 drift blend, so traction/rotation/slip transition smoothly. */
+  private driftAmount = 0;
+  /** Visual slip (yaw kick) of the hull during a drift, smoothed. */
+  private slip = 0;
   /** Visual bank/roll, smoothed. */
   private bank = 0;
 
@@ -105,6 +118,10 @@ export class Ship {
     this.verticalVel = 0;
     this.airborne = false;
     this.speed = 0;
+    this.steerInput = 0;
+    this.driftAmount = 0;
+    this.slip = 0;
+    this.bank = 0;
     this.lap = 0;
     this.currentLapMs = 0;
     this.lastT = 0;
@@ -119,21 +136,30 @@ export class Ship {
     const forward = new Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     const right = new Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
 
+    // Ease the raw steer toward its target. Digital inputs (keyboard, d-pad)
+    // snap to ±1; easing them in/out is what stops the ship flicking between
+    // the edges of the screen and makes turn-in (and drifts) feel progressive.
+    this.steerInput += (ctrl.steer - this.steerInput) * Math.min(1, STEER_EASE * dt);
+    const steer = this.steerInput;
+
     const braking = ctrl.brake > 0.1;
     const speed = this.velocity.length();
 
     // Drift = braking + meaningful steer while moving. The air-brake breaks
     // rear traction; steering then rotates the nose faster than the velocity.
-    this.drifting =
-      braking && Math.abs(ctrl.steer) > DRIFT_STEER_THRESHOLD && speed > DRIFT_MIN_SPEED;
-    if (this.drifting) this.driftDir = Math.sign(ctrl.steer);
+    const wantDrift =
+      braking && Math.abs(steer) > DRIFT_STEER_THRESHOLD && speed > DRIFT_MIN_SPEED;
+    this.drifting = wantDrift;
+    if (wantDrift) this.driftDir = Math.sign(steer);
+    // Blend the drift state in/out so grip and rotation ramp rather than snap.
+    this.driftAmount += ((wantDrift ? 1 : 0) - this.driftAmount) * Math.min(1, DRIFT_EASE * dt);
 
     // --- steering (yaw) ---
     // Turn authority scales up a touch with speed so it feels planted, and
-    // gets a big multiplier while drifting for that tail-out rotation.
+    // gains a multiplier as the drift blends in for that tail-out rotation.
     const speedFactor = Math.min(1, 0.4 + speed / this.stats.maxSpeed);
-    let yawRate = ctrl.steer * this.stats.turnRate * speedFactor;
-    if (this.drifting) yawRate *= this.stats.driftTurnMultiplier;
+    const turnMul = 1 + (this.stats.driftTurnMultiplier - 1) * this.driftAmount;
+    const yawRate = steer * this.stats.turnRate * speedFactor * turnMul;
     this.yaw += yawRate * dt;
 
     // --- decompose velocity into forward / lateral ---
@@ -161,7 +187,8 @@ export class Ship {
     vF -= vF * this.stats.drag * dt;
 
     // Lateral grip: high when gripping (kills slide), low when drifting (slides).
-    const grip = this.drifting ? this.stats.driftGrip : this.stats.grip;
+    // Blends with the drift amount so traction is released/regained smoothly.
+    const grip = this.stats.grip + (this.stats.driftGrip - this.stats.grip) * this.driftAmount;
     vR *= Math.max(0, 1 - grip * dt);
 
     // Recombine.
@@ -233,7 +260,7 @@ export class Ship {
     if (this.respawnFlash > 0) this.respawnFlash -= dt;
     this.speed = this.velocity.length();
     this.updateProgress(sample, dt);
-    this.updateVisuals(dt, ctrl);
+    this.updateVisuals(dt);
     this.syncTransform();
   }
 
@@ -252,10 +279,14 @@ export class Ship {
     this.lastT = sample.t;
   }
 
-  private updateVisuals(dt: number, ctrl: ControlState): void {
-    // Bank into turns; exaggerate while drifting.
-    const targetBank = -ctrl.steer * (this.drifting ? 0.5 : 0.3);
+  private updateVisuals(dt: number): void {
+    // Bank into turns; exaggerate as the drift blends in. Driven by the eased
+    // steer/drift so the hull leans smoothly instead of snapping.
+    const targetBank = -this.steerInput * (0.3 + 0.25 * this.driftAmount);
     this.bank += (targetBank - this.bank) * Math.min(1, 8 * dt);
+    // Slip: the nose kicks out in the drift direction, eased in/out.
+    const targetSlip = this.driftDir * 0.4 * this.driftAmount;
+    this.slip += (targetSlip - this.slip) * Math.min(1, SLIP_EASE * dt);
     // Engine glow pulses with boost / speed.
     const intensity = this.boostTimer > 0 ? 2.2 : 0.6 + (this.speed / this.stats.maxSpeed) * 0.8;
     this.glowMat.emissiveColor.set(0.4 * intensity, 0.9 * intensity, 1.0 * intensity);
@@ -263,9 +294,7 @@ export class Ship {
 
   private syncTransform(): void {
     this.root.position.copyFrom(this.position);
-    // Yaw to face heading; add drift slip angle so the nose visibly kicks out.
-    const slip = this.drifting ? this.driftDir * 0.35 : 0;
-    this.root.rotation.set(0, this.yaw + slip, this.bank);
+    this.root.rotation.set(0, this.yaw + this.slip, this.bank);
   }
 
   // ---- pad / power-up hooks (called by Game) --------------------------------
