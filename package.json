@@ -1,0 +1,21 @@
+{
+  "name": "driftracer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A mobile-first, landscape drift racer in the spirit of Wipeout 64 / F-Zero GX, built with Babylon.js.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^7.20.0",
+    "@babylonjs/materials": "^7.20.0"
+  }
+}

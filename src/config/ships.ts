@@ -1,0 +1,135 @@
+import { Color3 } from "@babylonjs/core/Maths/math.color";
+
+/**
+ * Ship roster.
+ *
+ * Stats are expressed on a normalized 0..1 scale (like F-Zero GX's letter
+ * grades) and are resolved into concrete physics quantities in
+ * {@link resolveShipStats}. Keeping the tunables abstract here means the
+ * future ship-select menu, the balancing pass, and any "tune your ship"
+ * sliders all talk in the same currency.
+ *
+ * Design intent: the three headline stats trade off against each other so no
+ * single ship dominates. A heavy ship corners poorly but holds a high top
+ * speed; a nimble ship turns on a dime but tops out lower; etc.
+ */
+export interface ShipSpec {
+  id: string;
+  name: string;
+  /** Short flavour line shown in the select screen. */
+  blurb: string;
+  /** Hull accent colour. */
+  color: Color3;
+
+  /** 0..1 — how fast it reaches top speed. */
+  acceleration: number;
+  /** 0..1 — maximum cruising speed. */
+  topSpeed: number;
+  /** 0..1 — turn rate + how well it holds a line through corners. */
+  cornering: number;
+  /** 0..1 — how readily it breaks traction into a drift, and how controllable. */
+  weight: number;
+}
+
+/**
+ * Concrete, physics-ready values derived from a {@link ShipSpec}.
+ * The physics step (see ship/ShipPhysics.ts) only ever reads these.
+ */
+export interface ResolvedShipStats {
+  /** Forward acceleration in world units / s^2. */
+  thrust: number;
+  /** Top cruising speed in world units / s. */
+  maxSpeed: number;
+  /** Base yaw rate in rad/s at full steer. */
+  turnRate: number;
+  /** Extra yaw rate multiplier while drifting. */
+  driftTurnMultiplier: number;
+  /** Lateral grip when gripping (higher = sticks to its line). */
+  grip: number;
+  /** Lateral grip when drifting (lower = slides more). */
+  driftGrip: number;
+  /** How hard the air-brake scrubs speed, units/s^2. */
+  brakeForce: number;
+  /** Linear drag applied to forward speed. */
+  drag: number;
+}
+
+// Tuning anchors: a stat of 0 maps to MIN, a stat of 1 maps to MAX.
+const SPEED_MIN = 70;
+const SPEED_MAX = 130;
+const THRUST_MIN = 28;
+const THRUST_MAX = 70;
+const TURN_MIN = 1.6;
+const TURN_MAX = 2.9;
+
+export function resolveShipStats(spec: ShipSpec): ResolvedShipStats {
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+  const maxSpeed = lerp(SPEED_MIN, SPEED_MAX, spec.topSpeed);
+  const thrust = lerp(THRUST_MIN, THRUST_MAX, spec.acceleration);
+  const turnRate = lerp(TURN_MIN, TURN_MAX, spec.cornering);
+
+  // Heavier ships break traction less easily but, once drifting, slide more
+  // and need more room. Lighter ships snap into drifts and recover faster.
+  const grip = lerp(3.2, 5.0, spec.cornering);
+  const driftGrip = lerp(0.5, 1.3, spec.weight);
+  const driftTurnMultiplier = lerp(1.7, 1.25, spec.weight);
+
+  return {
+    thrust,
+    maxSpeed,
+    turnRate,
+    driftTurnMultiplier,
+    grip,
+    driftGrip,
+    brakeForce: lerp(45, 30, spec.weight),
+    drag: 0.35,
+  };
+}
+
+export const SHIPS: ShipSpec[] = [
+  {
+    id: "vanguard",
+    name: "Vanguard",
+    blurb: "Balanced all-rounder. A safe first ride.",
+    color: new Color3(0.2, 0.7, 1.0),
+    acceleration: 0.55,
+    topSpeed: 0.6,
+    cornering: 0.6,
+    weight: 0.5,
+  },
+  {
+    id: "wraith",
+    name: "Wraith",
+    blurb: "Featherweight. Razor cornering, modest top end.",
+    color: new Color3(0.6, 1.0, 0.4),
+    acceleration: 0.7,
+    topSpeed: 0.45,
+    cornering: 0.9,
+    weight: 0.25,
+  },
+  {
+    id: "juggernaut",
+    name: "Juggernaut",
+    blurb: "Heavy hitter. Blistering top speed, wide turns.",
+    color: new Color3(1.0, 0.5, 0.2),
+    acceleration: 0.4,
+    topSpeed: 0.95,
+    cornering: 0.35,
+    weight: 0.85,
+  },
+  {
+    id: "tempest",
+    name: "Tempest",
+    blurb: "Drift specialist. Loose tail, huge slides.",
+    color: new Color3(0.9, 0.3, 0.8),
+    acceleration: 0.6,
+    topSpeed: 0.7,
+    cornering: 0.55,
+    weight: 0.75,
+  },
+];
+
+export function getShipById(id: string): ShipSpec {
+  return SHIPS.find((s) => s.id === id) ?? SHIPS[0];
+}
