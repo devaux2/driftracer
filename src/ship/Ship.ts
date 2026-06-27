@@ -10,7 +10,6 @@ import type { Track } from "../track/Track";
 
 const HOVER_HEIGHT = 1.2;
 const GRAVITY = 80;
-const DRIFT_STEER_THRESHOLD = 0.25;
 const DRIFT_MIN_SPEED = 12;
 const BOOST_PAD_SPEED = 200; // target speed while a boost is active
 const BOOST_DURATION = 1.4;
@@ -28,8 +27,9 @@ const DRIFT_RAMP_TIME = 2.0;
 const DRIFT_SHARP_MIN = 0;
 /** Seconds to bleed off drift sharpness after releasing, so each drift earns it. */
 const DRIFT_SHARP_DECAY = 0.4;
-/** How quickly the visual slip/yaw kick eases in/out. */
-const SLIP_EASE = 7;
+/** Velocity-realign rate (rad/s) while fully sliding — near zero so momentum is
+ * held like a trolley (vs the ship's `grip` rate when traction is engaged). */
+const GRIP_SLIDE = 0.2;
 /** How far below the road surface counts as "fallen off" → respawn. */
 const FALL_LIMIT = 16;
 
@@ -62,8 +62,6 @@ export class Ship {
   /** 0..1 skill ramp — climbs while a drift is held, so longer drifts turn
    * sharper (up to the ship's max drift turn). */
   private driftSharp = 0;
-  /** Visual slip (yaw kick) of the hull during a drift, smoothed. */
-  private slip = 0;
   /** Visual bank/roll, smoothed. */
   private bank = 0;
 
@@ -131,7 +129,6 @@ export class Ship {
     this.steerInput = 0;
     this.driftAmount = 0;
     this.driftSharp = 0;
-    this.slip = 0;
     this.bank = 0;
     this.lap = 0;
     this.currentLapMs = 0;
@@ -144,9 +141,6 @@ export class Ship {
   // ---- physics --------------------------------------------------------------
 
   update(dt: number, ctrl: ControlState, track: Track): void {
-    const forward = new Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
-    const right = new Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-
     // Ease the raw steer toward its target. Digital inputs (keyboard, d-pad)
     // snap to ±1; easing them in/out is what stops the ship flicking between
     // the edges of the screen and makes turn-in (and drifts) feel progressive.
@@ -154,59 +148,67 @@ export class Ship {
     const steer = this.steerInput;
 
     const braking = ctrl.brake > 0.1;
-    const speed = this.velocity.length();
+    let speed = this.velocity.length();
 
-    // Drift = braking + meaningful steer while moving. The air-brake breaks
-    // rear traction; steering then rotates the nose faster than the velocity.
-    const wantDrift =
-      braking && Math.abs(steer) > DRIFT_STEER_THRESHOLD && speed > DRIFT_MIN_SPEED;
-    this.drifting = wantDrift;
-    if (wantDrift) this.driftDir = Math.sign(steer);
-    // Blend the drift state in/out so grip and rotation ramp rather than snap.
-    this.driftAmount += ((wantDrift ? 1 : 0) - this.driftAmount) * Math.min(1, DRIFT_EASE * dt);
+    // Air-brake = release traction. Holding it lets the ship keep sliding on its
+    // current momentum (like a shopping trolley) while you rotate the body with
+    // steering; releasing re-engages grip, which swings the velocity round to
+    // face where the ship now points and carries you off that way. It's purely a
+    // traction toggle — no braking, no speed loss.
+    const sliding = braking && speed > DRIFT_MIN_SPEED;
+    this.drifting = sliding;
+    if (sliding && Math.abs(steer) > 0.05) this.driftDir = Math.sign(steer);
+    // Release traction smoothly, but re-engage grip FAST so letting go snaps the
+    // velocity round to the facing direction (the "catch" that fires you off).
+    const driftEase = sliding ? DRIFT_EASE : DRIFT_EASE * 3;
+    this.driftAmount += ((sliding ? 1 : 0) - this.driftAmount) * Math.min(1, driftEase * dt);
 
-    // Skill ramp: hold a drift longer and it sharpens toward the ship's max.
-    if (wantDrift) this.driftSharp = Math.min(1, this.driftSharp + dt / DRIFT_RAMP_TIME);
+    // Skill ramp: the longer the slide is held, the harder you can rotate it
+    // (0 -> max over DRIFT_RAMP_TIME), bleeding off after release.
+    if (sliding) this.driftSharp = Math.min(1, this.driftSharp + dt / DRIFT_RAMP_TIME);
     else this.driftSharp = Math.max(0, this.driftSharp - dt / DRIFT_SHARP_DECAY);
     const sharp = DRIFT_SHARP_MIN + (1 - DRIFT_SHARP_MIN) * this.driftSharp;
 
-    // --- steering (yaw) ---
-    // Turn authority scales up a touch with speed so it feels planted, and gains
-    // a multiplier as the drift blends in and sharpens with how long it's held.
+    // --- steering rotates the heading (the body), independent of momentum ---
     const speedFactor = Math.min(1, 0.4 + speed / this.stats.maxSpeed);
     const turnMul = 1 + (this.stats.driftTurnMultiplier - 1) * this.driftAmount * sharp;
-    const yawRate = steer * this.stats.turnRate * speedFactor * turnMul;
-    this.yaw += yawRate * dt;
+    this.yaw += steer * this.stats.turnRate * speedFactor * turnMul * dt;
 
-    // --- decompose velocity into forward / lateral ---
-    let vF = Vector3.Dot(this.velocity, forward);
-    let vR = Vector3.Dot(this.velocity, right);
+    const headingDir = new Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
 
-    // Auto-acceleration toward (possibly boosted) top speed. Boost only bites
-    // on the ground; in the air you coast (with only token thrust) so a jump's
-    // distance stays predictable rather than ballooning out under boost.
+    // --- traction: rotate the velocity DIRECTION toward the heading, preserving
+    // speed. Full grip normally (you go where you point); eased to ~frozen while
+    // sliding (momentum held). On release this swing is the "catch" that fires
+    // you off in the facing direction. ---
+    if (speed > 0.5) {
+      const velYaw = Math.atan2(this.velocity.x, this.velocity.z);
+      let dYaw = this.yaw - velYaw;
+      dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw)); // shortest arc
+      const gripRate = this.stats.grip + (GRIP_SLIDE - this.stats.grip) * this.driftAmount;
+      const stepAng = Math.max(-gripRate * dt, Math.min(gripRate * dt, dYaw));
+      const cs = Math.cos(stepAng);
+      const sn = Math.sin(stepAng);
+      const vx = this.velocity.x;
+      const vz = this.velocity.z;
+      this.velocity.x = vx * cs + vz * sn;
+      this.velocity.z = -vx * sn + vz * cs;
+    } else {
+      this.velocity.copyFrom(headingDir.scale(speed));
+    }
+
+    // --- speed magnitude: auto-accel toward (boosted) top speed + light drag.
+    // No brake scrub anywhere; direction is untouched here, so this just keeps
+    // up the speed you carry through a slide. ---
+    speed = this.velocity.length();
     const boosting = this.boostTimer > 0 && !this.airborne;
     const targetSpeed = boosting ? BOOST_PAD_SPEED : this.stats.maxSpeed;
     let thrust = boosting ? this.stats.thrust * 3 : this.stats.thrust;
     if (this.airborne) thrust *= 0.15;
-    if (vF < targetSpeed) vF = Math.min(targetSpeed, vF + thrust * dt);
-
-    // The air-brake scrubs speed only when braking straight. Drifting carries
-    // full speed through the corner — no slowdown.
-    if (braking && !boosting && !this.drifting) {
-      vF = Math.max(0, vF - this.stats.brakeForce * ctrl.brake * dt);
-    }
-
-    // Forward drag.
-    vF -= vF * this.stats.drag * dt;
-
-    // Lateral grip: high when gripping (kills slide), low when drifting (slides).
-    // Blends with the drift amount so traction is released/regained smoothly.
-    const grip = this.stats.grip + (this.stats.driftGrip - this.stats.grip) * this.driftAmount;
-    vR *= Math.max(0, 1 - grip * dt);
-
-    // Recombine.
-    this.velocity.copyFrom(forward.scale(vF).add(right.scale(vR)));
+    let newSpeed = speed;
+    if (newSpeed < targetSpeed) newSpeed = Math.min(targetSpeed, newSpeed + thrust * dt);
+    newSpeed -= newSpeed * this.stats.drag * dt;
+    if (speed > 0.001) this.velocity.scaleInPlace(newSpeed / speed);
+    else this.velocity.copyFrom(headingDir.scale(newSpeed));
 
     // --- drift reward: bank time drifting into a short boost on release ---
     if (this.drifting) {
@@ -298,9 +300,6 @@ export class Ship {
     // steer/drift so the hull leans smoothly instead of snapping.
     const targetBank = -this.steerInput * (0.3 + 0.25 * this.driftAmount);
     this.bank += (targetBank - this.bank) * Math.min(1, 8 * dt);
-    // Slip: the nose kicks out in the drift direction, eased in/out.
-    const targetSlip = this.driftDir * 0.4 * this.driftAmount;
-    this.slip += (targetSlip - this.slip) * Math.min(1, SLIP_EASE * dt);
     // Engine glow pulses with boost / speed.
     const intensity = this.boostTimer > 0 ? 2.2 : 0.6 + (this.speed / this.stats.maxSpeed) * 0.8;
     this.glowMat.emissiveColor.set(0.4 * intensity, 0.9 * intensity, 1.0 * intensity);
@@ -308,7 +307,7 @@ export class Ship {
 
   private syncTransform(): void {
     this.root.position.copyFrom(this.position);
-    this.root.rotation.set(0, this.yaw + this.slip, this.bank);
+    this.root.rotation.set(0, this.yaw, this.bank);
   }
 
   // ---- pad / power-up hooks (called by Game) --------------------------------

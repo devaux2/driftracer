@@ -159,6 +159,8 @@ export class Game {
       airborne: this.ship.airborne,
       respawnFlash: this.ship.respawnFlash,
       lap: this.ship.lap,
+      yaw: this.ship.yaw,
+      velYaw: Math.atan2(this.ship.velocity.x, this.ship.velocity.z),
       steer: this.lastSteer,
       pos: { x: this.ship.position.x, y: this.ship.position.y, z: this.ship.position.z },
     };
