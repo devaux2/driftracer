@@ -3,7 +3,11 @@
   --accent-2: #ff3da6;
   --boost: #ffd23d;
   --bg: #05060f;
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Orbitron", "Segoe UI", sans-serif;
+  --font-ui: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  /* Y2K chamfered-corner clip for panels/buttons. */
+  --chamfer: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  font-family: var(--font-ui);
 }
 
 * {
@@ -24,6 +28,7 @@ body,
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: none;
+  font-family: var(--font-ui);
 }
 
 #renderCanvas {
@@ -101,14 +106,16 @@ body,
 }
 .splash-start {
   margin-top: 1.2rem;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
   border: none;
   color: #05060f;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
   letter-spacing: 0.25em;
   font-size: clamp(1rem, 4vw, 1.5rem);
-  padding: 0.9rem 2.4rem;
-  border-radius: 14px;
+  padding: 0.9rem 2.8rem;
+  clip-path: var(--chamfer);
   cursor: pointer;
   animation: pulse 1.6s ease-in-out infinite;
 }
@@ -151,9 +158,14 @@ body,
   padding: 1rem;
 }
 .logo {
+  font-family: var(--font-display);
   font-size: clamp(2rem, 8vw, 4rem);
-  letter-spacing: 0.3em;
-  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-weight: 900;
+  font-style: italic;
+  color: #eaffff;
+  text-shadow: 0 0 6px var(--accent), 0 0 24px rgba(22, 224, 255, 0.7),
+    3px 3px 0 var(--accent-2);
 }
 .logo span {
   color: var(--accent);
@@ -165,34 +177,43 @@ body,
   flex-wrap: wrap;
 }
 .ship-card {
-  background: #161a33;
-  border: 2px solid #2a3157;
+  background: rgba(18, 22, 44, 0.7);
+  border: 1px solid rgba(120, 200, 255, 0.18);
   color: #fff;
-  border-radius: 10px;
-  padding: 0.6rem 0.9rem;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+  padding: 0.55rem 1rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
   font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .ship-card.selected {
   border-color: var(--accent);
-  box-shadow: 0 0 16px rgba(22, 224, 255, 0.4);
+  background: rgba(22, 224, 255, 0.12);
+  box-shadow: 0 0 18px rgba(22, 224, 255, 0.45);
 }
 .ship-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+  width: 12px;
+  height: 12px;
+  transform: skewX(-12deg);
 }
 .ship-detail {
-  background: #0d1024aa;
-  border: 1px solid #2a3157;
-  border-radius: 12px;
-  padding: 1rem;
+  background: rgba(8, 10, 26, 0.7);
+  border: 1px solid rgba(120, 200, 255, 0.18);
+  clip-path: var(--chamfer);
+  padding: 1rem 1.2rem;
 }
 .ship-detail h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.08em;
   color: var(--accent);
+  text-shadow: 0 0 14px rgba(22, 224, 255, 0.5);
 }
 .blurb {
   opacity: 0.7;
@@ -214,8 +235,8 @@ body,
 .stat .bar {
   flex: 1;
   height: 8px;
-  background: #222845;
-  border-radius: 4px;
+  background: #161b33;
+  transform: skewX(-20deg);
   overflow: hidden;
 }
 .stat .bar div {
@@ -232,14 +253,16 @@ body,
 }
 .start-btn {
   margin-top: 0.4rem;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
   border: none;
   color: #05060f;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
   letter-spacing: 0.2em;
   font-size: 1.3rem;
-  padding: 0.8rem 2rem;
-  border-radius: 12px;
+  padding: 0.8rem 2.4rem;
+  clip-path: var(--chamfer);
   cursor: pointer;
 }
 .controls-hint {
@@ -256,32 +279,31 @@ body,
   font-variant-numeric: tabular-nums;
 }
 
-/* Skewed parallelogram panels with a glowing leading edge + bevel. */
+/* Y2K chamfered-corner panels: no accent bars, just a faint neon edge + glow. */
 .hud-panel {
   position: absolute;
-  transform: skewX(-13deg);
-  background: linear-gradient(135deg, rgba(12, 18, 38, 0.82), rgba(6, 9, 20, 0.62));
-  border: 1px solid rgba(22, 224, 255, 0.28);
-  border-left: 3px solid var(--accent);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 22px rgba(22, 224, 255, 0.06);
+  background: linear-gradient(135deg, rgba(10, 14, 30, 0.6), rgba(4, 6, 14, 0.4));
+  clip-path: var(--chamfer);
   backdrop-filter: blur(3px);
 }
-/* counter-skew the contents so text stays upright */
 .hud-panel .panel-skew {
-  transform: skewX(13deg);
+  position: relative;
 }
 
 /* lap + times: a wide, flat bar across the top-centre of the screen */
 .lap-panel {
   top: 0;
   left: 50%;
-  transform: translateX(-50%); /* flat — no skew */
+  transform: translateX(-50%);
   width: min(620px, 84vw);
-  padding: 0.3rem 1.6rem 0.4rem;
-  border-left: none;
-  border-bottom: 3px solid var(--accent);
-  border-radius: 0 0 10px 10px;
+  padding: 0.35rem 1.8rem 0.5rem;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 24px 100%, 0 calc(100% - 16px));
+}
+.lap-panel .panel-skew {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1.6rem;
 }
 .lap-panel .panel-skew {
   transform: none;
@@ -298,19 +320,22 @@ body,
 }
 .lap-label {
   font-size: 0.8rem;
-  letter-spacing: 0.32em;
-  opacity: 0.7;
+  letter-spacing: 0.4em;
+  opacity: 0.6;
 }
 .lap-num {
+  font-family: var(--font-display);
   color: var(--accent);
-  font-weight: 800;
-  font-size: 1.4rem;
-  text-shadow: 0 0 14px rgba(22, 224, 255, 0.6);
+  font-weight: 900;
+  font-size: 1.5rem;
+  text-shadow: 0 0 14px rgba(22, 224, 255, 0.8);
 }
 .time-cur {
+  font-family: var(--font-display);
   font-size: 1.8rem;
   font-weight: 700;
   letter-spacing: 0.04em;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
 }
 .time-best {
   font-size: 0.75rem;
@@ -322,11 +347,11 @@ body,
 .speed-panel {
   bottom: max(0.9rem, env(safe-area-inset-bottom));
   left: max(1.4rem, env(safe-area-inset-left));
-  transform: skewX(-13deg) scale(0.5);
+  transform: scale(0.5);
   transform-origin: bottom left;
   padding: 0.4rem 1.6rem 0.6rem;
   text-align: center;
-  border-left: 3px solid var(--accent);
+  clip-path: var(--chamfer);
 }
 .indicators {
   display: flex;
@@ -366,11 +391,14 @@ body,
   gap: 0.3rem;
 }
 .speed-readout .kph {
+  font-family: var(--font-display);
   font-size: clamp(2.4rem, 7vw, 3.6rem);
-  font-weight: 800;
-  text-shadow: 0 0 20px rgba(22, 224, 255, 0.55);
+  font-weight: 900;
+  font-style: italic;
+  text-shadow: 0 0 20px rgba(22, 224, 255, 0.7);
 }
 .speed-readout .unit {
+  font-family: var(--font-display);
   font-size: 0.85rem;
   letter-spacing: 0.15em;
   opacity: 0.65;
@@ -401,12 +429,14 @@ body,
 .touch-pad {
   position: absolute;
   pointer-events: auto;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.7);
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  border-radius: 16px;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.15em;
+  clip-path: var(--chamfer);
   backdrop-filter: blur(2px);
   touch-action: none;
 }
