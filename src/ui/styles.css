@@ -5,6 +5,8 @@
   --bg: #05060f;
   --font-display: "Orbitron", "Segoe UI", sans-serif;
   --font-ui: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  /* monospace so clock/readouts have fixed-width digits (no jitter) */
+  --font-mono: "Share Tech Mono", "Consolas", "Courier New", monospace;
   /* Y2K chamfered-corner clip for panels/buttons. */
   --chamfer: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
   font-family: var(--font-ui);
@@ -340,19 +342,17 @@ body,
   text-shadow: 0 0 14px rgba(22, 224, 255, 0.8);
 }
 .time-cur {
-  font-family: var(--font-display);
-  font-size: 1.8rem;
-  font-weight: 700;
+  /* monospace = every digit the same width, so the clock never jitters */
+  font-family: var(--font-mono);
+  font-size: 1.7rem;
   letter-spacing: 0.04em;
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
   justify-self: center;
-  /* fixed-width digits so the clock doesn't jiggle as it ticks */
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
 }
 .time-best {
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
   opacity: 0.55;
 }
 
