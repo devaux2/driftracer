@@ -205,14 +205,14 @@ export class Track {
 
       let mesh: Mesh;
       if (p.kind === "boost") {
-        mesh = MeshBuilder.CreateGround(`pad-boost-${idx}`, { width: 10, height: 12 }, scene);
+        mesh = MeshBuilder.CreateGround(`pad-boost-${idx}`, { width: 16, height: 18 }, scene);
         mesh.position = pos.clone();
         mesh.lookAt(pos.add(f));
       } else {
         // A jump pad reads as a ramp: a plate tilted up toward travel, sized by
         // its launch power so a big shortcut ramp looks the part.
-        const len = 8 + power * 6;
-        mesh = MeshBuilder.CreateGround(`pad-jump-${idx}`, { width: 12, height: len }, scene);
+        const len = 12 + power * 8;
+        mesh = MeshBuilder.CreateGround(`pad-jump-${idx}`, { width: 18, height: len }, scene);
         mesh.position = pos.clone();
         mesh.lookAt(pos.add(f));
         // Pitch the leading edge upward about the local cross-track axis.

@@ -70,6 +70,64 @@ body,
   }
 }
 
+/* ---- splash ---- */
+.splash {
+  background: radial-gradient(circle at 50% 35%, #141a3a 0%, #05060f 75%);
+  z-index: 60;
+  transition: opacity 0.35s ease;
+  cursor: pointer;
+}
+.splash.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+.splash-inner {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+.logo.big {
+  font-size: clamp(2.6rem, 12vw, 6rem);
+}
+.tagline {
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  font-size: clamp(0.7rem, 2.5vw, 1rem);
+  opacity: 0.65;
+  margin-top: -0.4rem;
+}
+.splash-start {
+  margin-top: 1.2rem;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border: none;
+  color: #05060f;
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  font-size: clamp(1rem, 4vw, 1.5rem);
+  padding: 0.9rem 2.4rem;
+  border-radius: 14px;
+  cursor: pointer;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(22, 224, 255, 0);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 28px rgba(22, 224, 255, 0.5);
+  }
+}
+.splash-hint {
+  font-size: 0.78rem;
+  opacity: 0.5;
+}
+
 /* ---- menu ---- */
 .menu {
   background: radial-gradient(circle at 50% 30%, #11142b 0%, #05060f 70%);

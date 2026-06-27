@@ -42,42 +42,59 @@ export const TRACKS: TrackSpec[] = [
   {
     id: "neon-circuit",
     name: "Neon Circuit",
-    roadHalfWidth: 14,
-    // The layout deliberately uses verticality:
-    //  - a flat launch straight heading +Z toward a CHASM (no road along x≈0
-    //    between z≈130 and z≈250); the main road bulges out to the right around
-    //    it, so the ramp at the lip is a *risk shortcut* — clear the gap and you
-    //    skip the bulge; come up short and you fall in and respawn.
-    //  - a big banked HILL climb/crest (Y up to 14) and a VALLEY dip (Y −4) on
-    //    the back half for elevation change.
+    // Wide road (Wipeout/F-Zero scale) so high speed reads well and turns
+    // aren't claustrophobic.
+    roadHalfWidth: 26,
+    // A big, fast stadium loop built for speed:
+    //  - a very long start straight (x=0, +Z) to wind it out, with a CHASM
+    //    shortcut partway: the road bulges right around a ~150u gap and the ramp
+    //    at the lip lets you fly straight across (risk: come up short and you
+    //    fall in). The straight CONTINUES well past the rejoin, so overshooting
+    //    the jump is safe — only undershooting punishes you.
+    //  - sweeping, large-radius turns at each end (no brutal hairpins).
+    //  - a HILL (Y up to 10) on the top sweeper and a VALLEY (Y −4) on the long
+    //    back straight for verticality.
     points: [
-      [0, 0, -120], // start / finish, heading +Z
-      [0, 0, -20],
-      [0, 4, 80], // road rises into the launch lip
-      [0, 6, 130], // RAMP lip — chasm begins straight ahead (+Z)
-      [60, 2, 150], // main road bulges right around the chasm...
-      [95, 0, 190],
-      [60, 2, 230],
-      [0, 6, 250], // ...and rejoins the +Z line past the gap (landing zone)
-      [0, 4, 340],
-      [-70, 2, 390],
-      [-150, 10, 360], // hill climb
-      [-180, 14, 250], // hill crest (highest point)
-      [-160, 8, 130], // descent
-      [-110, 2, 10],
-      [-60, -4, -90], // valley dip (lowest point)
-      [0, 0, -140], // on the x=0 line so the start straight launches dead ahead
+      [0, 0, -450], // 0  start / finish, heading +Z (long main straight)
+      [0, 0, -180], // 1
+      [0, 5, 80], // 2  road rises into the launch lip
+      [0, 7, 200], // 3  RAMP lip — chasm ahead (x=0, z 200..350)
+      [140, 3, 250], // 4  main road bulges right around the chasm...
+      [200, 0, 300], // 5  bulge apex (far right)
+      [120, 3, 340], // 6
+      [0, 7, 350], // 7  ...rejoins the +Z line past the ~150u gap (landing zone)
+      [0, 3, 480], // 8  main straight continues (overshoot lands safely here)
+      [0, 0, 640], // 9  top of the main straight
+      [90, 3, 740], // 10 sweeping right turn begins, climbing
+      [240, 8, 800], // 11 hill climb
+      [410, 10, 780], // 12 hill crest (highest point)
+      [520, 7, 670], // 13 descend
+      [560, 3, 520], // 14 now heading -Z onto the back straight
+      [560, 0, 360], // 15 long back straight
+      [560, -4, 140], // 16 valley dip (lowest point)
+      [560, 0, -100], // 17
+      [550, 0, -280], // 18
+      [500, 2, -420], // 19 sweeping left turn back toward start
+      [370, 4, -520], // 20
+      [200, 2, -560], // 21
+      [60, 0, -540], // 22
+      [0, 0, -500], // 23 straighten onto x=0 before the start line
     ],
+    // NOTE: pad `t` values are calibrated to the actual arc of this spline
+    // (Catmull-Rom samples aren't evenly spaced), verified against the
+    // centre-line dump.
     pads: [
-      // The shortcut ramp, dead centre at the lip (t≈0.125). Approach at cruise
-      // speed and clear the 120u chasm to land at the rejoin (t≈0.375), skipping
-      // the right-hand bulge. Hug an edge to avoid it and take the safe way round.
-      { kind: "jump", t: 0.125, offset: 0, power: 1.3 },
-      { kind: "boost", t: 0.28, offset: 0 }, // reward for the safe bulge route
-      { kind: "boost", t: 0.45, offset: 0 },
-      { kind: "boost", t: 0.55, offset: -0.3 }, // into the hill climb
-      { kind: "jump", t: 0.62, offset: 0, power: 0.8 }, // crest hop
-      { kind: "boost", t: 0.88, offset: 0 },
+      { kind: "boost", t: 0.03, offset: 0 }, // wind up the main straight
+      // Shortcut ramp dead-centre at the lip (t≈0.083) — clear the ~150u chasm
+      // to skip the bulge and rejoin at t≈0.25. Overshoot is safe (the straight
+      // continues); undershoot drops you in.
+      { kind: "jump", t: 0.083, offset: 0, power: 1.5 },
+      { kind: "boost", t: 0.17, offset: 0 }, // reward for the safe bulge route
+      { kind: "boost", t: 0.4, offset: 0 }, // up the hill sweeper
+      { kind: "boost", t: 0.52, offset: 0 }, // over the crest
+      { kind: "jump", t: 0.61, offset: 0, power: 0.7 }, // hop on the back straight
+      { kind: "boost", t: 0.78, offset: 0 }, // out of the bottom sweeper
+      { kind: "boost", t: 0.92, offset: 0 }, // onto the start straight
     ],
   },
 ];

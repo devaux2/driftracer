@@ -14,12 +14,13 @@ import { ChaseCamera } from "../camera/ChaseCamera";
 import { SpeedLines } from "../effects/SpeedLines";
 import { HUD } from "../ui/HUD";
 import { Menu } from "../ui/Menu";
+import { Splash } from "../ui/Splash";
 import { getTrackById } from "../config/tracks";
 import type { ShipSpec } from "../config/ships";
 
 type GameMode = "menu" | "racing";
 
-const PAD_TRIGGER_RADIUS = 6;
+const PAD_TRIGGER_RADIUS = 8;
 const PAD_COOLDOWN = 1.5;
 
 export class Game {
@@ -55,22 +56,20 @@ export class Game {
     this.menu = new Menu(this.container, this.input.isTouchDevice, (ship, useGyro) =>
       this.startRace(ship, useGyro)
     );
+    this.menu.show(false); // hidden until PLAY is clicked on the title screen
+
+    // Title screen first. Clicking PLAY enters fullscreen (the required user
+    // gesture), then reveals the ship-select menu — already fullscreen.
+    new Splash(this.container, () => {
+      void this.enterFullscreen();
+      this.menu.show(true);
+    });
 
     this.engine.runRenderLoop(() => this.frame());
     window.addEventListener("resize", () => this.engine.resize());
     this.handleOrientation();
     window.addEventListener("orientationchange", () => this.handleOrientation());
     window.addEventListener("resize", () => this.handleOrientation());
-
-    // Browsers only allow fullscreen from a user gesture, so go fullscreen on
-    // the very first tap/click/key — i.e. as soon as the player touches it.
-    const goFs = () => {
-      void this.enterFullscreen();
-      window.removeEventListener("pointerdown", goFs);
-      window.removeEventListener("keydown", goFs);
-    };
-    window.addEventListener("pointerdown", goFs);
-    window.addEventListener("keydown", goFs);
   }
 
   /** Fullscreen the whole app (so HUD/touch overlays come along) and, on mobile,
@@ -107,7 +106,8 @@ export class Game {
     // Distance fog gives depth and reinforces speed.
     this.scene.fogMode = Scene.FOGMODE_EXP2;
     this.scene.fogColor = new Color3(0.02, 0.02, 0.08);
-    this.scene.fogDensity = 0.0016;
+    // Lighter on the big circuit so you can read the long straights ahead.
+    this.scene.fogDensity = 0.001;
 
     // A vast neon grid floor far below for parallax / sense of motion, and so
     // the chasm under the shortcut ramp reads as a real drop.
