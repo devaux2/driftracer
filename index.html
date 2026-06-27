@@ -9,6 +9,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#05060f" />
+    <!-- Don't let the browser serve a stale index.html (which would load old,
+         deleted asset hashes and run an out-of-date build). -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>DRIFTRACER</title>
     <!-- styles are imported from src/main.ts so Vite bundles them with the build -->
 

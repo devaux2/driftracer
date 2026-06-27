@@ -127,6 +127,16 @@ body,
   font-size: 0.78rem;
   opacity: 0.5;
 }
+.splash-version {
+  position: absolute;
+  bottom: max(0.8rem, env(safe-area-inset-bottom));
+  right: max(1rem, env(safe-area-inset-right));
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
 
 /* ---- menu ---- */
 .menu {

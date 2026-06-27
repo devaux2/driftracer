@@ -15,7 +15,8 @@ export class Splash {
         <p class="tagline">anti-grav drift racing</p>
         <button class="splash-start">PLAY</button>
         <p class="splash-hint">best in landscape · headphones recommended</p>
-      </div>`;
+      </div>
+      <div class="splash-version">build ${__BUILD_ID__}</div>`;
     container.appendChild(this.root);
 
     this.root
