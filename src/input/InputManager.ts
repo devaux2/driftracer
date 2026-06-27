@@ -33,9 +33,15 @@ export class InputManager {
     // Order matters: later sources win an axis if they're driving it.
     this.sources = [this.keyboard, this.gamepad, this.gyro, this.touch];
 
-    // On a pure-desktop session, the touch overlay just stays hidden.
-    this.touch.show(this.isTouchDevice);
+    // The overlay starts hidden (we open on the splash/menu); Game reveals it
+    // only while a race is actually in progress.
+    this.touch.show(false);
     this.setSteerMode("touch");
+  }
+
+  /** Show/hide the on-screen touch controls. No-op on non-touch devices. */
+  setTouchControlsVisible(visible: boolean): void {
+    this.touch.show(visible && this.isTouchDevice);
   }
 
   /** Switch mobile steering between on-screen pads and device tilt. */

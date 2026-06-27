@@ -253,6 +253,7 @@ export class Game {
     this.menu.show(false);
     this.hud.show(true);
     this.minimap.show(!isTime);
+    this.input.setTouchControlsVisible(true);
     this.mode = "racing";
   }
 
@@ -281,6 +282,7 @@ export class Game {
     this.minimap.show(false);
     this.results.hide();
     this.ghost.hide();
+    this.input.setTouchControlsVisible(false);
     this.menu.show(true);
   }
 
@@ -402,6 +404,7 @@ export class Game {
     if (!this.ship) return;
     this.phase = "finished";
     this.hud.setCountdown(null);
+    this.input.setTouchControlsVisible(false);
 
     const onRetry = () => this.startRace(this.lastSpec, this.raceMode, this.lastUseGyro);
     const onMenu = () => this.returnToMenu();
