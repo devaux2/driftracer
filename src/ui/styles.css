@@ -338,9 +338,6 @@ body,
   border-color: var(--boost);
   box-shadow: 0 0 16px var(--boost);
 }
-.ind.boost.empty {
-  opacity: 0.2;
-}
 .speed-readout {
   line-height: 0.95;
   display: flex;
@@ -448,18 +445,4 @@ body,
 .action-btn.brake.pressed {
   background: rgba(255, 61, 166, 0.3);
   border-color: var(--accent-2);
-}
-.action-btn.boost {
-  bottom: calc(26vh + 1.4rem);
-  height: 12vh;
-  font-size: 1.2rem;
-  border-color: rgba(255, 210, 61, 0.6);
-}
-.action-btn.boost.pressed {
-  background: rgba(255, 210, 61, 0.3);
-  border-color: var(--boost);
-}
-.action-btn.boost.depleted {
-  opacity: 0.3;
-  border-color: rgba(255, 255, 255, 0.2);
 }

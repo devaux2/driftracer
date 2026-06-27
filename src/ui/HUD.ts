@@ -67,9 +67,7 @@ export class HUD {
     this.timeEl.textContent = fmtTime(ship.currentLapMs);
     this.bestEl.textContent = `BEST ${fmtTime(ship.bestLapMs)}`;
     this.driftEl.classList.toggle("active", ship.drifting);
-    this.boostEl.textContent = `BOOST ${ship.boostCharges}`;
     this.boostEl.classList.toggle("active", ship.boostTimer > 0);
-    this.boostEl.classList.toggle("empty", ship.boostCharges === 0);
   }
 
   show(v: boolean): void {

@@ -74,8 +74,8 @@ export class Menu {
 
   private hint(): string {
     return this.isTouchDevice
-      ? "Hold BRAKE and steer to drift. Tap BOOST. Hit the pads."
-      : "Steer: A/D or ◄►  ·  Brake/Drift: SPACE  ·  Boost: SHIFT  ·  Gamepad supported";
+      ? "Steer with the stick, hold BRAKE and steer to drift. Hit the pads."
+      : "Steer: A/D or ◄►  ·  Brake/Drift: SPACE  ·  Gamepad supported";
   }
 
   show(v: boolean): void {

@@ -14,7 +14,6 @@ const DRIFT_STEER_THRESHOLD = 0.25;
 const DRIFT_MIN_SPEED = 12;
 const BOOST_PAD_SPEED = 200; // target speed while a boost is active
 const BOOST_DURATION = 1.4;
-const MANUAL_BOOSTS = 3; // manual boosts available per race
 const JUMP_VELOCITY = 42; // base launch speed; ramps scale this by their power
 const DRIFT_REWARD_TIME = 1.1; // seconds of drift to earn a mini-boost
 const WALL_RESTITUTION = 0.3;
@@ -47,9 +46,6 @@ export class Ship {
   driftDir = 0;
   driftCharge = 0;
   boostTimer = 0;
-  /** Manual boosts remaining this race (the BOOST button is a limited resource;
-   * track boost pads and the drift mini-boost don't draw from this). */
-  boostCharges = MANUAL_BOOSTS;
   /** Flashes briefly after a respawn so the HUD/effects can react. */
   respawnFlash = 0;
   /** Eased steer input (-1..1) — the actual value the physics steers with. */
@@ -129,7 +125,6 @@ export class Ship {
     this.lap = 0;
     this.currentLapMs = 0;
     this.lastT = 0;
-    this.boostCharges = MANUAL_BOOSTS;
     this.lastSafe.copyFrom(position);
     this.lastSafeForward.copyFrom(forward);
     this.syncTransform();
@@ -304,17 +299,9 @@ export class Ship {
 
   // ---- pad / power-up hooks (called by Game) --------------------------------
 
-  /** Free boost from a track pad — does not consume a manual charge. */
+  /** Boost from a track pad. */
   applyBoostPad(): void {
     this.boostTimer = BOOST_DURATION;
-  }
-
-  /** Spend one of the limited manual boosts. Returns true if one was available. */
-  useManualBoost(): boolean {
-    if (this.boostCharges <= 0) return false;
-    this.boostCharges--;
-    this.boostTimer = BOOST_DURATION;
-    return true;
   }
 
   /**

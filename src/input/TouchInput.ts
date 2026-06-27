@@ -22,11 +22,9 @@ export class TouchInput implements InputSource {
   private stickBase: HTMLDivElement;
   private stickThumb: HTMLDivElement;
   private brakeBtn: HTMLButtonElement;
-  private boostBtn: HTMLButtonElement;
 
   private steer = 0;
   private brakeHeld = false;
-  private boostEdge = false;
   private active = false;
   private steeringEnabled = true;
 
@@ -50,17 +48,11 @@ export class TouchInput implements InputSource {
     this.stickBase.appendChild(this.stickThumb);
 
     this.brakeBtn = this.makeButton("action-btn brake", "BRAKE");
-    this.boostBtn = this.makeButton("action-btn boost", "BOOST");
 
     this.bindStick();
     this.bindHold(this.brakeBtn, (down) => (this.brakeHeld = down));
-    this.boostBtn.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      this.boostEdge = true;
-      this.active = true;
-    });
 
-    this.root.append(this.stickZone, this.stickBase, this.brakeBtn, this.boostBtn);
+    this.root.append(this.stickZone, this.stickBase, this.brakeBtn);
     container.appendChild(this.root);
   }
 
@@ -147,12 +139,6 @@ export class TouchInput implements InputSource {
 
   // ---- InputSource ----------------------------------------------------------
 
-  /** Reflect remaining manual boosts on the BOOST button. */
-  setBoostCharges(n: number): void {
-    this.boostBtn.textContent = `BOOST ${n}`;
-    this.boostBtn.classList.toggle("depleted", n <= 0);
-  }
-
   /** Disable the joystick when gyro takes over steering. */
   setSteeringEnabled(enabled: boolean): void {
     this.steeringEnabled = enabled;
@@ -175,8 +161,6 @@ export class TouchInput implements InputSource {
   contribute(out: ControlState): void {
     if (this.steeringEnabled && Math.abs(this.steer) > 0.03) out.steer = this.steer;
     if (this.brakeHeld) out.brake = 1;
-    if (this.boostEdge) out.boost = true;
-    this.boostEdge = false;
   }
 
   isActive(): boolean {
