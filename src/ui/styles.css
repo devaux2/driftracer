@@ -237,7 +237,7 @@ body,
   opacity: 0.6;
 }
 
-/* ---- HUD ---- */
+/* ---- HUD (Wipeout-style angled chrome) ---- */
 .hud {
   position: absolute;
   inset: 0;
@@ -245,88 +245,130 @@ body,
   z-index: 10;
   font-variant-numeric: tabular-nums;
 }
-.hud-top-left {
+
+/* Skewed parallelogram panels with a glowing leading edge + bevel. */
+.hud-panel {
   position: absolute;
-  top: max(1rem, env(safe-area-inset-top));
-  left: max(1rem, env(safe-area-inset-left));
+  transform: skewX(-13deg);
+  background: linear-gradient(135deg, rgba(12, 18, 38, 0.82), rgba(6, 9, 20, 0.62));
+  border: 1px solid rgba(22, 224, 255, 0.28);
+  border-left: 3px solid var(--accent);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 22px rgba(22, 224, 255, 0.06);
+  backdrop-filter: blur(3px);
 }
-.hud-lap {
-  font-size: 1.1rem;
-  letter-spacing: 0.15em;
-  opacity: 0.9;
+/* counter-skew the contents so text stays upright */
+.hud-panel .panel-skew {
+  transform: skewX(13deg);
 }
-.hud-lap .lap-num {
-  color: var(--accent);
-  font-weight: 800;
+
+/* lap + times, top-left */
+.lap-panel {
+  top: max(0.9rem, env(safe-area-inset-top));
+  left: max(1.4rem, env(safe-area-inset-left));
+  padding: 0.5rem 1.4rem 0.55rem 1rem;
 }
-.hud-time {
-  font-size: 1.8rem;
-  font-weight: 700;
-}
-.hud-best {
-  font-size: 0.85rem;
-  opacity: 0.6;
-}
-.hud-bottom-right {
-  position: absolute;
-  bottom: max(1rem, env(safe-area-inset-bottom));
-  right: max(1.2rem, env(safe-area-inset-right));
-  text-align: right;
-}
-.hud-speed {
+.lap-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
   line-height: 1;
 }
-.hud-speed .kph {
-  font-size: 3.4rem;
-  font-weight: 800;
-  text-shadow: 0 0 18px rgba(22, 224, 255, 0.5);
-}
-.hud-speed .unit {
-  font-size: 1rem;
+.lap-label {
+  font-size: 0.8rem;
+  letter-spacing: 0.32em;
   opacity: 0.7;
-  margin-left: 0.3rem;
+}
+.lap-num {
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 1.5rem;
+  text-shadow: 0 0 14px rgba(22, 224, 255, 0.6);
+}
+.time-cur {
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-top: 0.15rem;
+}
+.time-best {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  opacity: 0.55;
+  margin-top: 0.05rem;
+}
+
+/* speedometer, bottom-centre (clear of joystick + brake/boost) */
+.speed-panel {
+  bottom: max(0.9rem, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%) skewX(-13deg);
+  padding: 0.4rem 1.8rem 0.6rem;
+  text-align: center;
+  border-left: none;
+  border-bottom: 3px solid var(--accent);
+}
+.indicators {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+.ind {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  padding: 0.16rem 0.7rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  opacity: 0.4;
+  transition: opacity 0.1s, box-shadow 0.1s;
+}
+.ind.drift.active {
+  opacity: 1;
+  color: #fff;
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  box-shadow: 0 0 16px var(--accent-2);
+}
+.ind.boost.active {
+  opacity: 1;
+  color: #05060f;
+  background: var(--boost);
+  border-color: var(--boost);
+  box-shadow: 0 0 16px var(--boost);
+}
+.speed-readout {
+  line-height: 0.95;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.3rem;
+}
+.speed-readout .kph {
+  font-size: clamp(2.4rem, 7vw, 3.6rem);
+  font-weight: 800;
+  text-shadow: 0 0 20px rgba(22, 224, 255, 0.55);
+}
+.speed-readout .unit {
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+  opacity: 0.65;
 }
 .speed-bar {
-  width: 240px;
-  max-width: 40vw;
-  height: 10px;
-  background: #1a1f3a;
-  border-radius: 5px;
-  margin-top: 0.4rem;
-  margin-left: auto;
+  width: clamp(200px, 34vw, 320px);
+  height: 9px;
+  margin: 0.4rem auto 0;
+  background: rgba(10, 14, 30, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
 .speed-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, var(--accent), var(--boost));
+  background: linear-gradient(90deg, var(--accent) 0%, var(--boost) 80%, #fff 100%);
+  box-shadow: 0 0 12px rgba(22, 224, 255, 0.6);
   transition: width 0.08s linear;
-}
-.hud-indicators {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-  margin-bottom: 0.4rem;
-}
-.ind {
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.15em;
-  padding: 0.2rem 0.6rem;
-  border-radius: 6px;
-  background: #1a1f3a;
-  opacity: 0.35;
-}
-.ind.drift.active {
-  opacity: 1;
-  background: var(--accent-2);
-  box-shadow: 0 0 16px var(--accent-2);
-}
-.ind.boost.active {
-  opacity: 1;
-  background: var(--boost);
-  color: #05060f;
-  box-shadow: 0 0 16px var(--boost);
 }
 
 /* ---- touch controls ---- */

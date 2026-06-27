@@ -308,8 +308,9 @@ export class Ship {
   }
 
   get speedKph(): number {
-    // purely cosmetic scaling for the HUD readout
-    return Math.round(this.speed * 12);
+    // Cosmetic scaling for the HUD: maps cruising/boost into a believable
+    // arcade range (~0..1000, boost spiking toward the top).
+    return Math.round(this.speed * 5);
   }
 
   get speedRatio(): number {
