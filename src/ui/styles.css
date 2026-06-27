@@ -352,20 +352,42 @@ body,
   background: rgba(22, 224, 255, 0.25);
   border-color: var(--accent);
 }
-.steer-pad {
-  bottom: max(1rem, env(safe-area-inset-bottom));
-  width: 22vw;
-  height: 40vh;
-  font-size: 2.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* floating analog joystick (left half) */
+.stick-zone {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 50vw;
+  height: 100%;
+  pointer-events: auto;
+  touch-action: none;
 }
-.steer-pad.left {
-  left: max(1rem, env(safe-area-inset-left));
+.stick-base {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px; /* centre on the touch point */
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
 }
-.steer-pad.right {
-  left: calc(22vw + 2rem);
+.stick-base.visible {
+  opacity: 1;
+}
+.stick-thumb {
+  position: absolute;
+  left: 30px;
+  top: 30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(22, 224, 255, 0.3);
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 18px rgba(22, 224, 255, 0.4);
 }
 .action-btn {
   right: max(1.2rem, env(safe-area-inset-right));

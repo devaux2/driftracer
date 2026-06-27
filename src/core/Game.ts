@@ -36,6 +36,7 @@ export class Game {
   private ship: Ship | null = null;
 
   private mode: GameMode = "menu";
+  private lastSteer = 0;
 
   constructor(canvas: HTMLCanvasElement, private container: HTMLElement) {
     this.engine = new Engine(canvas, true, { stencil: true, antialias: true });
@@ -156,6 +157,7 @@ export class Game {
       airborne: this.ship.airborne,
       respawnFlash: this.ship.respawnFlash,
       lap: this.ship.lap,
+      steer: this.lastSteer,
       pos: { x: this.ship.position.x, y: this.ship.position.y, z: this.ship.position.z },
     };
   }
@@ -169,6 +171,7 @@ export class Game {
   private frame(): void {
     const dt = Math.min(0.05, this.engine.getDeltaTime() / 1000);
     const ctrl = this.input.update(dt);
+    this.lastSteer = ctrl.steer;
 
     if (this.mode === "racing" && this.ship) {
       if (ctrl.boost) this.ship.applyBoostPad();
