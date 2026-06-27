@@ -9,6 +9,14 @@ function fmtTime(ms: number | null): string {
   return `${m}:${s.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`;
 }
 
+/** Wrap each digit in a fixed-width slot so the clock doesn't jitter as it ticks
+ * (separators keep their natural width but sit at fixed positions). */
+function digitize(s: string): string {
+  let out = "";
+  for (const ch of s) out += ch >= "0" && ch <= "9" ? `<span class="dig">${ch}</span>` : ch;
+  return out;
+}
+
 /**
  * In-game HUD, Wipeout-style: angled/skewed chrome panels. Lap + lap times sit
  * top-left; the big speedometer + drift/boost indicators sit bottom-centre
@@ -64,8 +72,8 @@ export class HUD {
     // speedRatio caps at 1.2 (boost headroom); normalise so the bar tops out then.
     this.speedBar.style.width = `${Math.min(100, (ship.speedRatio / 1.2) * 100)}%`;
     this.lapEl.textContent = String(Math.max(1, ship.lap)).padStart(2, "0");
-    this.timeEl.textContent = fmtTime(ship.currentLapMs);
-    this.bestEl.textContent = `BEST ${fmtTime(ship.bestLapMs)}`;
+    this.timeEl.innerHTML = digitize(fmtTime(ship.currentLapMs));
+    this.bestEl.innerHTML = `BEST ${digitize(fmtTime(ship.bestLapMs))}`;
     this.driftEl.classList.toggle("active", ship.drifting);
     this.boostEl.classList.toggle("active", ship.boostTimer > 0);
   }
