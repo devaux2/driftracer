@@ -7,9 +7,10 @@ import type { Track } from "../track/Track";
 /** Time constant (s) for the camera yaw chasing the travel direction. Small =
  * snappy/responsive in corners; just enough to smooth the grip-catch swing. */
 const YAW_TAU = 0.09;
-/** Fixed amount the look-target sits below the camera — a constant gentle
- * downward pitch that never swings with speed or elevation. */
-const LOOK_DROP = 1.2;
+/** Fixed amount the look-target sits below the camera — sets a constant downward
+ * pitch (never swings with speed/elevation). Tuned so the craft sits in the
+ * lower third with track visible below it, F-Zero-GX style. */
+const LOOK_DROP = 3.3;
 /** Minimum camera height above the track surface beneath it (anti clip-through). */
 const GROUND_CLEARANCE = 1.6;
 
@@ -23,8 +24,8 @@ const GROUND_CLEARANCE = 1.6;
 export class ChaseCamera {
   readonly camera: UniversalCamera;
 
-  private readonly distance = 4.5;
-  private readonly height = 2.6;
+  private readonly distance = 7;
+  private readonly height = 3.5;
   private readonly baseFov = 0.9;
   private readonly maxFov = 1.04;
 
