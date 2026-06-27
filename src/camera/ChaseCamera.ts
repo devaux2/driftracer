@@ -3,8 +3,8 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { Scene } from "@babylonjs/core/scene";
 import type { Ship } from "../ship/Ship";
 
-/** How fast the camera yaw catches up to the ship heading (per second). Lower =
- * the ship slides more within the frame during a drift before the camera follows. */
+/** How fast the camera yaw catches up to the travel direction (per second).
+ * Smooths the swing when grip re-engages and the velocity snaps to the heading. */
 const CAM_YAW_EASE = 5;
 
 /**
@@ -38,28 +38,35 @@ export class ChaseCamera {
 
   update(dt: number, ship: Ship): void {
     const ratio = ship.speedRatio;
+    const speed = ship.velocity.length();
 
-    // The camera's own yaw LAGS the ship's heading. This is the key to drifts
-    // not whipping the camera: during a drift the ship's nose swings fast, but
-    // the camera holds roughly behind your line of travel, so the ship visibly
-    // slides within the frame instead of dragging the view around. (ship.yaw is
-    // a continuous accumulating angle, so a plain lerp is safe — no wrapping.)
-    if (!this.initialized) this.camYaw = ship.yaw;
-    else this.camYaw += (ship.yaw - this.camYaw) * Math.min(1, CAM_YAW_EASE * dt);
+    // The camera follows your DIRECTION OF TRAVEL (velocity), not the ship's
+    // heading. That's the whole point: in a drift the ship can be fully sideways
+    // while the camera stays pointed where you're actually going, so the ship
+    // just slides across the frame. Fall back to heading when nearly stopped
+    // (velocity direction is meaningless at rest). velYaw is wrapped to (-pi,pi],
+    // so ease along the shortest arc.
+    const targetYaw =
+      speed > 4 ? Math.atan2(ship.velocity.x, ship.velocity.z) : ship.yaw;
+    if (!this.initialized) {
+      this.camYaw = targetYaw;
+    } else {
+      let d = targetYaw - this.camYaw;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      this.camYaw += d * Math.min(1, CAM_YAW_EASE * dt);
+    }
 
-    // Desired camera position: close behind + just above, along the camera yaw.
-    // Pull IN slightly with speed (not out) so the ground rushes past faster.
+    // Position close behind + just above, along the travel direction. Pull IN
+    // slightly with speed (not out) so the ground rushes past faster.
     const back = this.baseDistance - ratio * 1.5;
     const forward = new Vector3(Math.sin(this.camYaw), 0, Math.cos(this.camYaw));
-    const right = new Vector3(Math.cos(this.camYaw), 0, -Math.sin(this.camYaw));
     const desired = ship.position
       .subtract(forward.scale(back))
       .add(new Vector3(0, this.baseHeight, 0));
 
-    // Look a bit ahead, leaning toward the drift via the EASED drift amount.
+    // Look ahead along the travel direction.
     const lookAhead = forward.scale(7 + ratio * 2);
-    const driftBias = right.scale(ship.driftDir * 5 * ship.driftAmount);
-    const target = ship.position.add(lookAhead).add(driftBias).add(new Vector3(0, 1.5, 0));
+    const target = ship.position.add(lookAhead).add(new Vector3(0, 1.5, 0));
 
     if (!this.initialized) {
       this.smoothedPos.copyFrom(desired);
