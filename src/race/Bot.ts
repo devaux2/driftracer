@@ -5,29 +5,56 @@ import type { ShipSpec } from "../config/ships";
 import type { Track } from "../track/Track";
 import { neutralControl, type ControlState } from "../input/types";
 
-/** How far ahead (as a fraction of the lap) the bot aims — bigger = smoother
- * lines / more corner-cutting, smaller = hugs the centre line. */
-const LOOKAHEAD_T = 0.014;
-/** Converts heading error (radians) into steer input. */
-const STEER_GAIN = 2.4;
+/** Per-bot driving personality. Combined with the random ship choice, this is
+ * what gives each opponent a recognisable, signature feel over a race. */
+export interface BotProfile {
+  /** Throttle cap (0..1) — overall pace. */
+  pace: number;
+  /** How far ahead it aims (fraction of lap): low = hugs the line, high = cuts
+   * corners on a smooth racing line. */
+  lookahead: number;
+  /** Steering sharpness — high = darty/precise, low = lazy/wide. */
+  steerGain: number;
+  /** Preferred lane offset from centre (world units). */
+  lane: number;
+  /** Amplitude of a slow lane weave (world units) — sloppier bots wander. */
+  weaveAmp: number;
+  /** Weave frequency (Hz). */
+  weaveFreq: number;
+}
+
+const rand = (a: number, b: number) => a + Math.random() * (b - a);
+
+/** Roll a random signature profile within sensible ranges. */
+export function randomBotProfile(halfWidth: number): BotProfile {
+  const sloppy = Math.random() < 0.5;
+  return {
+    pace: rand(0.82, 1.0),
+    lookahead: rand(0.009, 0.022),
+    steerGain: rand(1.8, 3.4),
+    lane: rand(-1, 1) * (halfWidth - 8),
+    weaveAmp: sloppy ? rand(3, 11) : 0,
+    weaveFreq: rand(0.4, 1.4),
+  };
+}
 
 /**
- * A basic AI opponent: a {@link Ship} steered to follow the track's racing line.
- * It aims at a point a little way ahead on the centre line (offset into its own
- * lane so the pack fans out) and steers toward it; auto-accel handles speed. No
- * drifting — that's the player's edge.
+ * A basic AI opponent: a {@link Ship} steered to follow the racing line, with a
+ * per-bot {@link BotProfile} so each one drives with its own character — pace,
+ * how much it cuts corners, how sharply it steers, and how much it wanders.
  */
 export class Bot {
   readonly ship: Ship;
   readonly name: string;
-  /** Preferred lane offset from centre, world units. */
-  private readonly lane: number;
+  readonly profile: BotProfile;
   private readonly ctrl: ControlState = neutralControl();
+  private t = 0;
 
-  constructor(scene: Scene, spec: ShipSpec, name: string, lane: number) {
+  constructor(scene: Scene, spec: ShipSpec, name: string, profile: BotProfile) {
     this.ship = new Ship(scene, spec);
     this.name = name;
-    this.lane = lane;
+    this.profile = profile;
+    this.ship.speedCap = profile.pace;
   }
 
   placeAtStart(pos: Vector3, forward: Vector3): void {
@@ -35,14 +62,18 @@ export class Bot {
   }
 
   update(dt: number, track: Track): void {
+    this.t += dt;
+    const p = this.profile;
+    const lane = p.lane + p.weaveAmp * Math.sin(this.t * p.weaveFreq * Math.PI * 2);
+
     const here = track.locate(this.ship.position);
-    const aim = track.pointAt(here.t + LOOKAHEAD_T, this.lane);
+    const aim = track.pointAt(here.t + p.lookahead, lane);
 
     const desiredYaw = Math.atan2(aim.x - this.ship.position.x, aim.z - this.ship.position.z);
     let dYaw = desiredYaw - this.ship.yaw;
     dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw)); // shortest arc
 
-    this.ctrl.steer = Math.max(-1, Math.min(1, dYaw * STEER_GAIN));
+    this.ctrl.steer = Math.max(-1, Math.min(1, dYaw * p.steerGain));
     this.ctrl.brake = 0;
     this.ctrl.boost = false;
     this.ctrl.pause = false;

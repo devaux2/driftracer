@@ -15,7 +15,7 @@ import { SpeedLines } from "../effects/SpeedLines";
 import { HUD } from "../ui/HUD";
 import { Menu } from "../ui/Menu";
 import { Splash } from "../ui/Splash";
-import { Bot } from "../race/Bot";
+import { Bot, randomBotProfile } from "../race/Bot";
 import { Minimap } from "../race/Minimap";
 import { getTrackById } from "../config/tracks";
 import { RACER_NAMES, SHIPS, type ShipSpec } from "../config/ships";
@@ -157,8 +157,8 @@ export class Game {
 
     for (let i = 0; i < RACER_COUNT - 1; i++) {
       const botSpec = SHIPS[Math.floor(Math.random() * SHIPS.length)];
-      const lane = (Math.random() * 2 - 1) * (this.track.halfWidth - 8);
-      const bot = new Bot(this.scene, botSpec, names[i] ?? `CPU ${i + 1}`, lane);
+      const profile = randomBotProfile(this.track.halfWidth);
+      const bot = new Bot(this.scene, botSpec, names[i] ?? `CPU ${i + 1}`, profile);
       bot.placeAtStart(gridPos(i), fwd);
       this.bots.push(bot);
     }
