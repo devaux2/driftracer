@@ -161,7 +161,7 @@ export class Game {
       this.splash = new Splash(this.container, () => {
         this.splash = null;
         void this.enterFullscreen();
-        this.audio.start(); // begin the OST (this click is the required gesture)
+        this.audio.playMenu(); // begin menu music (this click is the required gesture)
         this.menu.show(true);
       });
     });
@@ -315,6 +315,7 @@ export class Game {
     this.hud.show(true);
     this.minimap.show(!isTime);
     this.input.setTouchControlsVisible(true);
+    this.audio.playRace(); // shuffle the aggro/chill pool while racing
     this.mode = "racing";
   }
 
@@ -352,6 +353,7 @@ export class Game {
     this.results.hide();
     this.ghost.hide();
     this.input.setTouchControlsVisible(false);
+    this.audio.playMenu(); // back to menu themes
     this.menu.show(true);
   }
 

@@ -1,16 +1,19 @@
 import { OST, type MusicTrack } from "./tracks";
 
+type Context = "menu" | "race";
+
 /**
- * Music + SFX volume manager. Plays the OST as a continuous shuffled playlist
- * and fires `onTrack` whenever a new track starts (drives the now-playing
- * mini-player). Volumes persist to localStorage. SFX volume is exposed for
- * future in-game sounds.
+ * Music + SFX volume manager. Plays the OST with context routing — "menu"
+ * themes on the front-end, "aggro"/"chill" tracks while racing — picking
+ * randomly within the pool and avoiding immediate repeats. Fires `onTrack` when
+ * a new track starts (drives the now-playing mini-player). Volumes persist.
  */
 export class AudioManager {
   private music = new Audio();
-  private playlist: MusicTrack[] = [];
-  private order: number[] = [];
-  private cursor = -1;
+  private menuPool: MusicTrack[] = OST.filter((t) => t.kind === "menu");
+  private racePool: MusicTrack[] = OST.filter((t) => t.kind !== "menu");
+  private context: Context = "menu";
+  private current: MusicTrack | null = null;
   private started = false;
 
   musicVolume = 0.6;
@@ -23,8 +26,7 @@ export class AudioManager {
     this.musicVolume = this.load("driftracer.vol.music", 0.6);
     this.sfxVolume = this.load("driftracer.vol.sfx", 0.7);
     this.music.volume = this.musicVolume;
-    this.music.addEventListener("ended", () => this.next());
-    this.setPlaylist(OST);
+    this.music.addEventListener("ended", () => this.playRandom());
   }
 
   private load(key: string, def: number): number {
@@ -43,32 +45,42 @@ export class AudioManager {
     }
   }
 
-  setPlaylist(tracks: MusicTrack[]): void {
-    this.playlist = tracks;
-    // shuffled play order
-    this.order = tracks.map((_, i) => i);
-    for (let i = this.order.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [this.order[i], this.order[j]] = [this.order[j], this.order[i]];
-    }
-    this.cursor = -1;
+  /** Switch to menu music (call from a user gesture the first time). */
+  playMenu(): void {
+    this.setContext("menu");
+  }
+  /** Switch to race music. */
+  playRace(): void {
+    this.setContext("race");
   }
 
-  /** Begin playback (call from a user gesture). No-op if the OST is empty. */
-  start(): void {
-    if (this.started) return;
+  private setContext(ctx: Context): void {
+    if (this.started && ctx === this.context) return; // already playing this pool
+    this.context = ctx;
     this.started = true;
-    if (this.playlist.length) this.next();
+    this.playRandom();
   }
 
-  next(): void {
-    if (!this.playlist.length) return;
-    this.cursor = (this.cursor + 1) % this.order.length;
-    const track = this.playlist[this.order[this.cursor]];
+  private playRandom(): void {
+    const pool = this.context === "menu" ? this.menuPool : this.racePool;
+    if (!pool.length) return;
+    let track = pool[Math.floor(Math.random() * pool.length)];
+    if (pool.length > 1) {
+      let guard = 0;
+      while (track === this.current && guard++ < 8) {
+        track = pool[Math.floor(Math.random() * pool.length)];
+      }
+    }
+    this.current = track;
     this.music.src = track.src;
     this.music.volume = this.musicVolume;
     void this.music.play().catch(() => {});
     this.onTrack?.(track);
+  }
+
+  /** Skip to the next track in the current pool. */
+  skip(): void {
+    if (this.started) this.playRandom();
   }
 
   setMusicVolume(v: number): void {
