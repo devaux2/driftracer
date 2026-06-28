@@ -6,6 +6,7 @@ import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { GridMaterial } from "@babylonjs/materials/grid/gridMaterial";
 
 import { InputManager } from "../input/InputManager";
@@ -344,29 +345,73 @@ export class Game {
     this.startRace(this.lastSpec, "time", this.lastUseGyro);
   }
 
-  /** Export the edited track as a Wavefront .OBJ mesh (road + rails + pads) for
-   * building out in C4D / Blender etc. Built in a throwaway scene so nothing
-   * else is included. OBJ is used over glTF for the widest DCC compatibility. */
+  /**
+   * Export the edited track as a Wavefront .OBJ (+ .mtl) for building out in
+   * C4D / Blender. Each surface type gets a distinctly-named material —
+   * `vd_road`, `vd_edge`, `vd_boost`, `vd_jump`, `vd_start` — so the
+   * road-vs-boost-vs-jump distinction is preserved through a DCC round-trip and
+   * can be read back on import (via `usemtl`). OBJ over glTF for DCC reach.
+   */
   private async exportTrack(spec: TrackSpec): Promise<void> {
     const tmp = new Scene(this.engine);
     const track = new Track(tmp, spec);
     try {
       const { OBJExport } = await import("@babylonjs/serializers/OBJ");
+
+      // Type-tag materials so the pad types survive the round-trip.
+      const mk = (name: string, r: number, g: number, b: number): StandardMaterial => {
+        const m = new StandardMaterial(name, tmp);
+        m.diffuseColor = new Color3(r, g, b);
+        m.emissiveColor = new Color3(r * 0.5, g * 0.5, b * 0.5);
+        return m;
+      };
+      const mats = {
+        road: mk("vd_road", 0.12, 0.14, 0.2),
+        edge: mk("vd_edge", 0.1, 0.6, 1.0),
+        boost: mk("vd_boost", 1.0, 0.8, 0.1),
+        jump: mk("vd_jump", 0.3, 1.0, 0.5),
+        start: mk("vd_start", 0.9, 0.9, 0.9),
+      };
+      for (const m of tmp.meshes) {
+        if (!(m instanceof Mesh)) continue;
+        const n = m.name;
+        m.material = n.startsWith("pad-boost")
+          ? mats.boost
+          : n.startsWith("pad-jump")
+            ? mats.jump
+            : n.startsWith("rail")
+              ? mats.edge
+              : n === "startLine"
+                ? mats.start
+                : mats.road;
+      }
+
       const meshes = tmp.meshes.filter((m): m is Mesh => m instanceof Mesh && m.getTotalVertices() > 0);
-      const obj = OBJExport.OBJ(meshes, false, undefined, true);
-      const blob = new Blob([obj], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `vector-drift-${spec.id || "track"}.obj`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const base = `vector-drift-${spec.id || "track"}`;
+      const obj = OBJExport.OBJ(meshes, true, `${base}.mtl`, true);
+      const mtl = Object.values(mats)
+        .map((m) => {
+          const c = m.diffuseColor;
+          return `newmtl ${m.name}\nKa 0 0 0\nKd ${c.r.toFixed(3)} ${c.g.toFixed(3)} ${c.b.toFixed(3)}\nKs 0.1 0.1 0.1\nd 1.0\nillum 2\n`;
+        })
+        .join("\n");
+      this.downloadText(`${base}.obj`, obj);
+      this.downloadText(`${base}.mtl`, mtl);
     } catch (e) {
       console.warn("track export failed", e);
     } finally {
       track.dispose();
       tmp.dispose();
     }
+  }
+
+  private downloadText(filename: string, text: string): void {
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   /** Race position = 1 + the number of racers further around the track. */

@@ -149,15 +149,38 @@ export class Editor {
     return { x: (sx - this.offX) / this.scale, z: (this.offY - sz) / this.scale };
   }
 
-  /** Nearest parameter t (0..1) on the sampled loop to a world point. */
-  private nearestT(world: Pt): number {
+  /** Locate a world point on the road: nearest position along the loop (t) and
+   * its lateral offset across the road (-1..1), so pads land where you click. */
+  private locate(world: Pt): { t: number; offset: number } {
     const pts = this.sampleLoop(8);
+    const n = pts.length;
     let best = 0, bestD = Infinity;
-    for (let i = 0; i < pts.length; i++) {
+    for (let i = 0; i < n; i++) {
       const d = (pts[i].x - world.x) ** 2 + (pts[i].z - world.z) ** 2;
       if (d < bestD) { bestD = d; best = i; }
     }
-    return best / pts.length;
+    const a = pts[(best - 1 + n) % n];
+    const b = pts[(best + 1) % n];
+    let tx = b.x - a.x, tz = b.z - a.z;
+    const len = Math.hypot(tx, tz) || 1;
+    tx /= len; tz /= len;
+    const nx = tz, nz = -tx; // right-hand normal (matches Track's "right")
+    const c = pts[best];
+    const off = ((world.x - c.x) * nx + (world.z - c.z) * nz) / this.spec.roadHalfWidth;
+    return { t: best / n, offset: Math.max(-1, Math.min(1, off)) };
+  }
+
+  /** World position of a pad, accounting for its lateral offset on the road. */
+  private padPos(pad: PadSpec, loop: Pt[]): Pt {
+    const n = loop.length;
+    const idx = Math.floor(pad.t * n) % n;
+    const a = loop[(idx - 1 + n) % n];
+    const b = loop[(idx + 1) % n];
+    let tx = b.x - a.x, tz = b.z - a.z;
+    const len = Math.hypot(tx, tz) || 1;
+    tx /= len; tz /= len;
+    const c = loop[idx];
+    return { x: c.x + tz * pad.offset * this.spec.roadHalfWidth, z: c.z - tx * pad.offset * this.spec.roadHalfWidth };
   }
 
   // ---- rendering -----------------------------------------------------------
@@ -174,7 +197,8 @@ export class Editor {
     ctx.clearRect(0, 0, w, h);
     this.fit();
 
-    const loop = this.sampleLoop(18).map((p) => this.toScreen(p.x, p.z));
+    const wl = this.sampleLoop(18);
+    const loop = wl.map((p) => this.toScreen(p.x, p.z));
 
     // road band (thick translucent stroke of the centre-line)
     ctx.lineJoin = "round";
@@ -188,10 +212,10 @@ export class Editor {
     ctx.lineWidth = 1.5;
     this.strokeClosed(loop);
 
-    // pads
+    // pads — drawn at their actual spot on the road (t + lateral offset)
     this.spec.pads.forEach((pad, i) => {
-      const idx = Math.floor(pad.t * loop.length) % loop.length;
-      const at = loop[idx];
+      const wp = this.padPos(pad, wl);
+      const at = this.toScreen(wp.x, wp.z);
       const selected = this.sel?.type === "pad" && this.sel.index === i;
       ctx.fillStyle = pad.kind === "boost" ? "#ffcf3d" : "#3dff84";
       ctx.beginPath();
@@ -354,11 +378,11 @@ export class Editor {
       return -1;
     };
     const hitPad = (sx: number, sy: number): number => {
-      const loop = this.sampleLoop(18).map((p) => this.toScreen(p.x, p.z));
+      const wl = this.sampleLoop(18);
       for (let i = 0; i < this.spec.pads.length; i++) {
-        const idx = Math.floor(this.spec.pads[i].t * loop.length) % loop.length;
-        const at = loop[idx];
-        if ((at.x - sx) ** 2 + (at.z - sy) ** 2 < 144) return i;
+        const wp = this.padPos(this.spec.pads[i], wl);
+        const at = this.toScreen(wp.x, wp.z);
+        if ((at.x - sx) ** 2 + (at.z - sy) ** 2 < 169) return i;
       }
       return -1;
     };
@@ -374,12 +398,12 @@ export class Editor {
         return;
       }
       if (this.tool === "boost" || this.tool === "jump") {
-        this.addPad(this.tool, this.nearestT(world));
+        this.addPad(this.tool, world);
         this.tool = "select";
         this.renderPanel();
         return;
       }
-      // select tool: points take priority, then pads
+      // select tool: points take priority, then pads. Both are draggable.
       const pi = hitPoint(sx, sy);
       if (pi >= 0) {
         this.sel = { type: "point", index: pi };
@@ -388,18 +412,30 @@ export class Editor {
       } else {
         const di = hitPad(sx, sy);
         this.sel = di >= 0 ? { type: "pad", index: di } : null;
+        if (di >= 0) {
+          this.dragging = true;
+          this.canvas.setPointerCapture(e.pointerId);
+        }
       }
       this.renderPanel();
       this.draw();
     });
 
     this.canvas.addEventListener("pointermove", (e) => {
-      if (!this.dragging || this.sel?.type !== "point") return;
+      if (!this.dragging || !this.sel) return;
       const rect = this.canvas.getBoundingClientRect();
       const world = this.toWorld(e.clientX - rect.left, e.clientY - rect.top);
-      const p = this.spec.points[this.sel.index];
-      p[0] = Math.round(world.x);
-      p[2] = Math.round(world.z);
+      if (this.sel.type === "point") {
+        const p = this.spec.points[this.sel.index];
+        p[0] = Math.round(world.x);
+        p[2] = Math.round(world.z);
+      } else {
+        // drag the pad anywhere on the road: update both t and lateral offset
+        const { t, offset } = this.locate(world);
+        const pad = this.spec.pads[this.sel.index];
+        pad.t = t;
+        pad.offset = offset;
+      }
       this.draw();
     });
 
@@ -407,6 +443,7 @@ export class Editor {
       if (this.dragging) {
         this.dragging = false;
         this.canvas.releasePointerCapture?.(e.pointerId);
+        if (this.sel?.type === "pad") this.renderPanel(); // sync offset slider
       }
     };
     this.canvas.addEventListener("pointerup", endDrag);
@@ -428,8 +465,9 @@ export class Editor {
     this.draw();
   }
 
-  private addPad(kind: "boost" | "jump", t: number): void {
-    const pad: PadSpec = { kind, t, offset: 0 };
+  private addPad(kind: "boost" | "jump", world: Pt): void {
+    const { t, offset } = this.locate(world);
+    const pad: PadSpec = { kind, t, offset };
     if (kind === "jump") pad.power = 1;
     this.spec.pads.push(pad);
     this.sel = { type: "pad", index: this.spec.pads.length - 1 };
