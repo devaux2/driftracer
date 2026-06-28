@@ -34,11 +34,14 @@ export class Editor {
   private dragging = false;
   private vDragging = false;
 
+  private fileInput: HTMLInputElement;
+
   constructor(
     container: HTMLElement,
     private onTest: (spec: TrackSpec) => void,
     private onExit: () => void,
-    private onExport: (spec: TrackSpec) => void
+    private onExport: (spec: TrackSpec) => void,
+    private onImport: (file: File) => Promise<TrackSpec | null>
   ) {
     this.root = document.createElement("div");
     this.root.className = "vd-editor overlay";
@@ -59,7 +62,13 @@ export class Editor {
     this.panel = document.createElement("div");
     this.panel.className = "vd-ed-panel";
 
-    this.root.append(views, this.panel);
+    this.fileInput = document.createElement("input");
+    this.fileInput.type = "file";
+    this.fileInput.accept = ".obj,.glb,.gltf";
+    this.fileInput.style.display = "none";
+    this.fileInput.addEventListener("change", () => void this.handleImport());
+
+    this.root.append(views, this.panel, this.fileInput);
     container.appendChild(this.root);
     this.ctx = this.canvas.getContext("2d")!;
     this.sideCtx = this.side.getContext("2d")!;
@@ -530,7 +539,10 @@ export class Editor {
           <button class="vd-ed-load">LOAD</button>
           <button class="vd-ed-reset">RESET</button>
         </div>
-        <button class="vd-ed-export">⬇ EXPORT .OBJ</button>
+        <div class="vd-ed-actions-row">
+          <button class="vd-ed-export">⬇ EXPORT</button>
+          <button class="vd-ed-import">⬆ IMPORT</button>
+        </div>
         <button class="vd-ed-back back-btn">‹ BACK TO MENU</button>
       </div>`;
 
@@ -581,7 +593,24 @@ export class Editor {
       this.onExport(cloneSpec(this.spec));
       this.flash(".vd-ed-export", "EXPORTED");
     });
+    this.panel.querySelector(".vd-ed-import")!.addEventListener("click", () => this.fileInput.click());
     this.panel.querySelector(".vd-ed-back")!.addEventListener("click", () => this.onExit());
+  }
+
+  private async handleImport(): Promise<void> {
+    const file = this.fileInput.files?.[0];
+    this.fileInput.value = ""; // allow re-importing the same file
+    if (!file) return;
+    const spec = await this.onImport(file);
+    if (spec) {
+      this.spec = spec;
+      this.sel = null;
+      this.tool = "select";
+      this.renderPanel();
+      this.draw();
+    } else {
+      this.flash(".vd-ed-import", "FAILED");
+    }
   }
 
   private flash(sel: string, text: string): void {

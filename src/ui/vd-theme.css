@@ -1117,7 +1117,8 @@
   cursor: pointer;
   font-size: clamp(0.62rem, 1.5vh, 0.8rem);
 }
-.vd-ed-export {
+.vd-ed-export,
+.vd-ed-import {
   background: rgba(215, 255, 55, 0.12);
   border: 1px solid var(--vd-lime);
   color: var(--vd-lime);

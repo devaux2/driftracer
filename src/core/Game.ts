@@ -121,7 +121,8 @@ export class Game {
       this.container,
       (spec) => this.testTrack(spec),
       () => this.exitEditor(),
-      (spec) => void this.exportTrack(spec)
+      (spec) => void this.exportTrack(spec),
+      (file) => this.importTrackFromFile(file)
     );
     this.menu.show(false); // hidden until PLAY is clicked on the title screen
 
@@ -401,6 +402,20 @@ export class Game {
       console.warn("track export failed", e);
     } finally {
       track.dispose();
+      tmp.dispose();
+    }
+  }
+
+  /** Parse an imported track mesh (.obj/.glb) into a TrackSpec for the editor. */
+  private async importTrackFromFile(file: File): Promise<TrackSpec | null> {
+    const tmp = new Scene(this.engine);
+    try {
+      const { importTrackFile } = await import("../track/importTrack");
+      return await importTrackFile(tmp, file);
+    } catch (e) {
+      console.warn("track import failed", e);
+      return null;
+    } finally {
       tmp.dispose();
     }
   }
