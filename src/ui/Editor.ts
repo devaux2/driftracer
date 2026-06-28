@@ -19,6 +19,8 @@ export class Editor {
   private root: HTMLDivElement;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private side: HTMLCanvasElement;
+  private sideCtx: CanvasRenderingContext2D;
   private panel: HTMLDivElement;
 
   private spec: TrackSpec = baseSpec();
@@ -30,6 +32,7 @@ export class Editor {
   private offX = 0;
   private offY = 0;
   private dragging = false;
+  private vDragging = false;
 
   constructor(
     container: HTMLElement,
@@ -40,16 +43,28 @@ export class Editor {
     this.root.className = "vd-editor overlay";
     this.root.style.display = "none";
 
+    const views = document.createElement("div");
+    views.className = "vd-ed-views";
     this.canvas = document.createElement("canvas");
     this.canvas.className = "vd-ed-canvas";
+    const sideWrap = document.createElement("div");
+    sideWrap.className = "vd-ed-side-wrap";
+    sideWrap.innerHTML = `<span class="vd-ed-side-label">ELEVATION ▸ drag points to set height</span>`;
+    this.side = document.createElement("canvas");
+    this.side.className = "vd-ed-side";
+    sideWrap.appendChild(this.side);
+    views.append(this.canvas, sideWrap);
+
     this.panel = document.createElement("div");
     this.panel.className = "vd-ed-panel";
 
-    this.root.append(this.canvas, this.panel);
+    this.root.append(views, this.panel);
     container.appendChild(this.root);
     this.ctx = this.canvas.getContext("2d")!;
+    this.sideCtx = this.side.getContext("2d")!;
 
     this.bindCanvas();
+    this.bindSide();
     window.addEventListener("resize", () => {
       if (this.root.style.display !== "none") this.resize();
     });
@@ -72,11 +87,14 @@ export class Editor {
 
   private resize(): void {
     const dpr = window.devicePixelRatio || 1;
-    const w = this.canvas.clientWidth || this.root.clientWidth;
-    const h = this.canvas.clientHeight || this.root.clientHeight;
-    this.canvas.width = Math.max(1, Math.floor(w * dpr));
-    this.canvas.height = Math.max(1, Math.floor(h * dpr));
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    for (const [cv, cx] of [
+      [this.canvas, this.ctx],
+      [this.side, this.sideCtx],
+    ] as const) {
+      cv.width = Math.max(1, Math.floor((cv.clientWidth || 1) * dpr));
+      cv.height = Math.max(1, Math.floor((cv.clientHeight || 1) * dpr));
+      cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     this.draw();
   }
 
@@ -144,6 +162,11 @@ export class Editor {
   // ---- rendering -----------------------------------------------------------
 
   private draw(): void {
+    this.drawTop();
+    this.drawSide();
+  }
+
+  private drawTop(): void {
     const ctx = this.ctx;
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
@@ -204,6 +227,119 @@ export class Editor {
     pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.z) : ctx.moveTo(p.x, p.z)));
     ctx.closePath();
     ctx.stroke();
+  }
+
+  // ---- side-on elevation view ---------------------------------------------
+
+  private static readonly Y_MIN = -30;
+  private static readonly Y_MAX = 30;
+
+  /** Cumulative XZ distance to each control point, normalised 0..1 over the
+   * full closed loop — the x-axis of the elevation profile. */
+  private progressX(): number[] {
+    const p = this.spec.points;
+    const n = p.length;
+    const cum = [0];
+    let total = 0;
+    for (let i = 1; i < n; i++) {
+      total += Math.hypot(p[i][0] - p[i - 1][0], p[i][2] - p[i - 1][2]);
+      cum.push(total);
+    }
+    total += Math.hypot(p[0][0] - p[n - 1][0], p[0][2] - p[n - 1][2]) || 1;
+    return cum.map((c) => c / total);
+  }
+
+  private sideX(frac: number): number {
+    const pad = 18;
+    return pad + frac * (this.side.clientWidth - pad * 2);
+  }
+  private sideY(height: number): number {
+    const pad = 14;
+    const h = this.side.clientHeight;
+    const t = (height - Editor.Y_MIN) / (Editor.Y_MAX - Editor.Y_MIN);
+    return h - pad - t * (h - pad * 2); // higher Y = higher on screen
+  }
+  private sideToHeight(sy: number): number {
+    const pad = 14;
+    const h = this.side.clientHeight;
+    const t = (h - pad - sy) / (h - pad * 2);
+    return Math.max(Editor.Y_MIN, Math.min(Editor.Y_MAX, Editor.Y_MIN + t * (Editor.Y_MAX - Editor.Y_MIN)));
+  }
+
+  private drawSide(): void {
+    const ctx = this.sideCtx;
+    const w = this.side.clientWidth;
+    const h = this.side.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+
+    // zero baseline
+    const zeroY = this.sideY(0);
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, zeroY);
+    ctx.lineTo(w, zeroY);
+    ctx.stroke();
+
+    const fx = this.progressX();
+    const pts = this.spec.points.map((p, i) => ({ x: this.sideX(fx[i]), y: this.sideY(p[1]) }));
+
+    // profile line
+    ctx.strokeStyle = "rgba(120,200,255,0.7)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.stroke();
+
+    // handles
+    pts.forEach((p, i) => {
+      const selected = this.sel?.type === "point" && this.sel.index === i;
+      ctx.fillStyle = i === 0 ? "#d7ff37" : selected ? "#ff1e5a" : "#ffffff";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, selected ? 7 : 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  private bindSide(): void {
+    const hit = (sx: number, sy: number): number => {
+      const fx = this.progressX();
+      for (let i = 0; i < this.spec.points.length; i++) {
+        const hx = this.sideX(fx[i]);
+        const hy = this.sideY(this.spec.points[i][1]);
+        if ((hx - sx) ** 2 + (hy - sy) ** 2 < 169) return i;
+      }
+      return -1;
+    };
+    this.side.addEventListener("pointerdown", (e) => {
+      const rect = this.side.getBoundingClientRect();
+      const i = hit(e.clientX - rect.left, e.clientY - rect.top);
+      if (i < 0) return;
+      this.sel = { type: "point", index: i };
+      this.vDragging = true;
+      this.side.setPointerCapture(e.pointerId);
+      this.renderPanel();
+      this.draw();
+    });
+    this.side.addEventListener("pointermove", (e) => {
+      if (!this.vDragging || this.sel?.type !== "point") return;
+      const rect = this.side.getBoundingClientRect();
+      this.spec.points[this.sel.index][1] = Math.round(this.sideToHeight(e.clientY - rect.top));
+      this.draw();
+      // keep the height slider in sync if it's showing
+      const hv = this.panel.querySelector("#ed-hv");
+      const hs = this.panel.querySelector<HTMLInputElement>("#ed-h");
+      if (hv) hv.textContent = String(this.spec.points[this.sel.index][1]);
+      if (hs) hs.value = String(this.spec.points[this.sel.index][1]);
+    });
+    const end = (e: PointerEvent) => {
+      if (this.vDragging) {
+        this.vDragging = false;
+        this.side.releasePointerCapture?.(e.pointerId);
+      }
+    };
+    this.side.addEventListener("pointerup", end);
+    this.side.addEventListener("pointercancel", end);
   }
 
   // ---- interaction ---------------------------------------------------------

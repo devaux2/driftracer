@@ -918,13 +918,42 @@
   justify-content: stretch;
   display: flex;
 }
-.vd-ed-canvas {
+.vd-ed-views {
   flex: 1;
   min-width: 0;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.vd-ed-canvas {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   display: block;
   touch-action: none;
   cursor: crosshair;
+}
+.vd-ed-side-wrap {
+  position: relative;
+  flex: 0 0 24%;
+  border-top: 1px solid rgba(255, 30, 90, 0.25);
+  background: rgba(255, 255, 255, 0.02);
+}
+.vd-ed-side {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: ns-resize;
+}
+.vd-ed-side-label {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.6rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
 }
 .vd-ed-panel {
   flex: 0 0 clamp(220px, 26vw, 320px);
