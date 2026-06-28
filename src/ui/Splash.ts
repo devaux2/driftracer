@@ -7,6 +7,7 @@ import { logoMark } from "./marks";
  */
 export class Splash {
   private root: HTMLDivElement;
+  private gone = false;
 
   constructor(container: HTMLElement, private onPlay: () => void) {
     this.root = document.createElement("div");
@@ -50,7 +51,14 @@ export class Splash {
     this.root.addEventListener("click", () => this.play());
   }
 
+  /** Proceed programmatically (e.g. from a gamepad confirm). */
+  trigger(): void {
+    this.play();
+  }
+
   private play(): void {
+    if (this.gone) return;
+    this.gone = true;
     this.root.classList.add("fade-out");
     setTimeout(() => this.root.remove(), 350);
     this.onPlay();

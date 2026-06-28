@@ -28,6 +28,11 @@ export class Boot {
     window.addEventListener("keydown", this.onKey);
   }
 
+  /** Proceed programmatically (e.g. from a gamepad confirm). */
+  trigger(): void {
+    this.go();
+  }
+
   private go(): void {
     if (this.done) return;
     this.done = true;

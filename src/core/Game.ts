@@ -54,6 +54,8 @@ export class Game {
   private speedLines: SpeedLines;
   private hud: HUD;
   private menu: Menu;
+  private boot: Boot | null = null;
+  private splash: Splash | null = null;
   private minimap: Minimap;
   private results: Results;
   private ghost: Ghost;
@@ -110,10 +112,13 @@ export class Game {
 
     // Boot gate first: it captures the first user gesture so we can go
     // fullscreen *before* showing the splash (so the splash is fullscreen).
-    // Splash → menu, both already fullscreen.
-    new Boot(this.container, () => {
+    // Splash → menu, both already fullscreen. Refs kept so a gamepad can
+    // advance them (full controller playability).
+    this.boot = new Boot(this.container, () => {
+      this.boot = null;
       void this.enterFullscreen();
-      new Splash(this.container, () => {
+      this.splash = new Splash(this.container, () => {
+        this.splash = null;
         void this.enterFullscreen();
         this.menu.show(true);
       });
@@ -318,11 +323,28 @@ export class Game {
         this.speedLines.render(dt, 0, 0);
       }
     } else {
+      this.handleMenuPad();
       // Keep the scene alive behind the menu.
       this.speedLines.render(dt, 0, 0);
     }
 
     this.scene.render();
+  }
+
+  /** Let a gamepad drive the boot gate, splash and menus (full controller
+   * playability). Pointer/keyboard still work as before. */
+  private handleMenuPad(): void {
+    const nav = this.input.gamepad.getNav();
+    if (!(nav.up || nav.down || nav.left || nav.right || nav.confirm || nav.back)) return;
+    if (this.boot) {
+      if (nav.confirm) this.boot.trigger();
+      return;
+    }
+    if (this.splash) {
+      if (nav.confirm) this.splash.trigger();
+      return;
+    }
+    this.menu.handlePad(nav);
   }
 
   /** 3-2-1-GO. The ship is frozen (we don't tick physics) so the timer and

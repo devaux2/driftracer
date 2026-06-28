@@ -1,5 +1,15 @@
 import type { ControlState, InputSource } from "./types";
 
+/** One-shot UI navigation edges from the pad, for driving menus. */
+export interface UiNav {
+  up: boolean;
+  down: boolean;
+  left: boolean;
+  right: boolean;
+  confirm: boolean;
+  back: boolean;
+}
+
 /**
  * Standard-mapping gamepad (Xbox / DualShock / generic) via the Gamepad API.
  *
@@ -27,6 +37,10 @@ export class GamepadInput implements InputSource {
   private active = false;
 
   private static readonly DEADZONE = 0.18;
+
+  // UI navigation edges (for menus), recomputed each frame.
+  private nav: UiNav = { up: false, down: false, left: false, right: false, confirm: false, back: false };
+  private prevNav: UiNav = { up: false, down: false, left: false, right: false, confirm: false, back: false };
 
   private readonly onConnect = (e: GamepadEvent) => {
     this.index = e.gamepad.index;
@@ -66,6 +80,8 @@ export class GamepadInput implements InputSource {
       this.brake = 0;
       this.prevBoost = false;
       this.prevPause = false;
+      this.nav = { up: false, down: false, left: false, right: false, confirm: false, back: false };
+      this.prevNav = { ...this.nav };
       return;
     }
 
@@ -94,6 +110,32 @@ export class GamepadInput implements InputSource {
     if (Math.abs(this.steer) > 0.01 || this.brake > 0.01 || boost || pause) {
       this.active = true;
     }
+
+    // UI navigation edges (D-pad or stick flicks; A/Start confirm; B back).
+    const ax = pad.axes[0] ?? 0;
+    const ay = pad.axes[1] ?? 0;
+    const now: UiNav = {
+      up: pressed(12) || ay < -0.5,
+      down: pressed(13) || ay > 0.5,
+      left: pressed(14) || ax < -0.5,
+      right: pressed(15) || ax > 0.5,
+      confirm: pressed(0) || pressed(9),
+      back: pressed(1),
+    };
+    this.nav = {
+      up: now.up && !this.prevNav.up,
+      down: now.down && !this.prevNav.down,
+      left: now.left && !this.prevNav.left,
+      right: now.right && !this.prevNav.right,
+      confirm: now.confirm && !this.prevNav.confirm,
+      back: now.back && !this.prevNav.back,
+    };
+    this.prevNav = now;
+  }
+
+  /** One-shot UI navigation edges for this frame (for menu navigation). */
+  getNav(): UiNav {
+    return this.nav;
   }
 
   contribute(out: ControlState): void {

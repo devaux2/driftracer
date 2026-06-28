@@ -42,7 +42,8 @@ export class Menu {
 
   private screen: Screen = "main";
   private selectedShipId = SHIPS[0].id;
-  private selectedMode = "quick";
+  /** Currently focused main-menu row (keyboard/gamepad cursor). */
+  private focus = "quick";
   private useGyro = false;
 
   constructor(
@@ -111,7 +112,7 @@ export class Menu {
     this.root.className = "vd-menu overlay vd-screen-main";
 
     const modes = MODES.map((m) => {
-      const sel = m.id === this.selectedMode && m.playable;
+      const sel = m.id === this.focus;
       return `
       <button class="vd-mode ${sel ? "sel" : ""} ${m.playable ? "" : "soon"}" data-mode="${m.id}">
         <span class="vd-ic">${m.icon}</span>
@@ -170,32 +171,53 @@ export class Menu {
     });
     this.content
       .querySelector<HTMLButtonElement>(".select-act")!
-      .addEventListener("click", () => this.confirmMode(this.selectedMode));
+      .addEventListener("click", () => this.activate(this.focus));
     this.content.querySelector<HTMLButtonElement>(".vd-gyro")?.addEventListener("click", () => {
       this.useGyro = !this.useGyro;
       this.render();
     });
   }
 
+  /** IDs the cursor can land on (playable rows, incl. Garage). */
+  private navIds(): string[] {
+    return MODES.filter((m) => m.playable).map((m) => m.id);
+  }
+
+  /** Click a row: focus it and act immediately. */
   private pickMode(id: string): void {
+    if (!this.navIds().includes(id)) return;
+    this.focus = id;
+    this.activate(id);
+  }
+
+  /** Act on a row: open the garage, or start a playable mode. */
+  private activate(id: string): void {
     if (id === "garage") {
       this.goto("garage");
       return;
     }
     const mode = MODES.find((m) => m.id === id);
-    if (!mode?.playable) return;
-    // First tap highlights; a tap on the already-selected row launches it.
-    if (this.selectedMode === id) this.confirmMode(id);
-    else {
-      this.selectedMode = id;
-      this.render();
-    }
+    if (mode?.playable) this.onStart(getShipById(this.selectedShipId), id, this.useGyro);
   }
 
-  private confirmMode(id: string): void {
-    const mode = MODES.find((m) => m.id === id);
-    if (mode?.playable && id !== "garage") {
-      this.onStart(getShipById(this.selectedShipId), id, this.useGyro);
+  /** Move the main-menu cursor by `dir` (-1 up / +1 down), wrapping. */
+  private moveFocus(dir: number): void {
+    const ids = this.navIds();
+    const i = ids.indexOf(this.focus);
+    this.focus = ids[(i + dir + ids.length) % ids.length] ?? ids[0];
+    this.renderMain();
+  }
+
+  /** Drive the menu from a gamepad (or other) navigation event. */
+  handlePad(nav: { up: boolean; down: boolean; left: boolean; right: boolean; confirm: boolean; back: boolean }): void {
+    if (this.screen === "main") {
+      if (nav.up) this.moveFocus(-1);
+      if (nav.down) this.moveFocus(1);
+      if (nav.confirm) this.activate(this.focus);
+    } else {
+      if (nav.left) this.cycle(-1);
+      if (nav.right) this.cycle(1);
+      if (nav.confirm || nav.back) this.goto("main");
     }
   }
 
