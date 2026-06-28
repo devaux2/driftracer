@@ -1097,9 +1097,9 @@
 
 /* minimap / track card (bottom-left) */
 .dhud-mini { bottom: 2vh; left: 2vh; width: clamp(180px, 16vw, 260px); }
-.dhud-mini-head { display: flex; align-items: baseline; justify-content: space-between; }
-.dhud-mini-head b { color: var(--vd-pink); font-weight: 700; letter-spacing: 0.1em; font-size: clamp(0.85rem, 2.2vh, 1.2rem); }
-.dhud-mini-head .d-track-km { color: rgba(255, 255, 255, 0.5); font-size: 0.8rem; }
+.dhud-mini-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6vw; }
+.dhud-mini-head b { color: var(--vd-pink); font-weight: 700; letter-spacing: 0.08em; font-size: clamp(0.78rem, 1.9vh, 1.02rem); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dhud-mini-head .d-track-km { flex: 0 0 auto; color: rgba(255, 255, 255, 0.5); font-size: 0.78rem; white-space: nowrap; }
 .dhud-mini-jp { color: rgba(255, 255, 255, 0.35); font-size: 0.7rem; letter-spacing: 0.1em; margin-bottom: 0.6vh; }
 .dhud-mini-map { position: relative; width: 100%; aspect-ratio: 1.25 / 1; }
 .dhud-mini-map .minimap { position: absolute; inset: 0; top: 0; right: 0; width: 100%; height: 100%; background: none; clip-path: none; }
