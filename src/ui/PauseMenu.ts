@@ -6,10 +6,11 @@ interface PauseCallbacks {
   onFullscreen: () => void;
   onMusicVol: (v: number) => void;
   onSfxVol: (v: number) => void;
+  onSkip: () => void;
 }
 
-type Row = "resume" | "music" | "sfx" | "fullscreen" | "quit";
-const ROWS: Row[] = ["resume", "music", "sfx", "fullscreen", "quit"];
+type Row = "resume" | "music" | "sfx" | "skip" | "fullscreen" | "quit";
+const ROWS: Row[] = ["resume", "music", "sfx", "skip", "fullscreen", "quit"];
 
 /** In-race pause overlay: resume, audio settings, fullscreen, quit to menu.
  * Works with mouse, keyboard and gamepad. */
@@ -18,6 +19,7 @@ export class PauseMenu {
   private focus = 0;
   private music = 0.6;
   private sfx = 0.7;
+  private nowPlaying = "";
 
   constructor(container: HTMLElement, private cb: PauseCallbacks) {
     this.root = document.createElement("div");
@@ -30,12 +32,20 @@ export class PauseMenu {
     return this.root.style.display !== "none";
   }
 
-  show(musicVol: number, sfxVol: number): void {
+  show(musicVol: number, sfxVol: number, nowPlaying = ""): void {
     this.music = musicVol;
     this.sfx = sfxVol;
+    this.nowPlaying = nowPlaying;
     this.focus = 0;
     this.root.style.display = "";
     this.render();
+  }
+
+  /** Update the displayed now-playing line (e.g. after a skip). */
+  setNowPlaying(text: string): void {
+    this.nowPlaying = text;
+    const el = this.root.querySelector(".pause-np-track");
+    if (el) el.textContent = text || "—";
   }
 
   hide(): void {
@@ -62,12 +72,17 @@ export class PauseMenu {
           <input type="range" class="pm-sfx" min="0" max="1" step="0.05" value="${this.sfx}">
           <b>${this.pct(this.sfx)}</b>
         </div>
+        <button class="pause-btn pause-skip ${f("skip")}" data-row="skip">
+          <span>⏭ SKIP TRACK</span>
+          <span class="pause-np-track">${this.nowPlaying || "—"}</span>
+        </button>
         <button class="pause-btn ${f("fullscreen")}" data-row="fullscreen">⛶ FULLSCREEN</button>
         <button class="pause-btn quit ${f("quit")}" data-row="quit">QUIT TO MENU</button>
         <p class="pause-hint">ESC / START to resume</p>
       </div>`;
 
     this.root.querySelector<HTMLButtonElement>('[data-row="resume"]')!.onclick = () => this.cb.onResume();
+    this.root.querySelector<HTMLButtonElement>('[data-row="skip"]')!.onclick = () => this.cb.onSkip();
     this.root.querySelector<HTMLButtonElement>('[data-row="fullscreen"]')!.onclick = () => this.cb.onFullscreen();
     this.root.querySelector<HTMLButtonElement>('[data-row="quit"]')!.onclick = () => this.cb.onQuit();
     const m = this.root.querySelector<HTMLInputElement>(".pm-music")!;
@@ -111,6 +126,7 @@ export class PauseMenu {
     }
     if (nav.confirm) {
       if (row === "resume") this.cb.onResume();
+      else if (row === "skip") this.cb.onSkip();
       else if (row === "fullscreen") this.cb.onFullscreen();
       else if (row === "quit") this.cb.onQuit();
     }

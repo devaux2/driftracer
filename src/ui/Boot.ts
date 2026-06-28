@@ -1,4 +1,4 @@
-import { logoMark } from "./marks";
+import logoUrl from "../assets/logo.png";
 
 /**
  * Pre-splash boot gate. Its only job is to capture the first user gesture
@@ -17,8 +17,8 @@ export class Boot {
     this.root.className = "vd-boot overlay";
     this.root.innerHTML = `
       <div class="vd-boot-inner">
-        <span class="vd-boot-mark">${logoMark()}</span>
-        <p class="vd-boot-sys">VECTOR DRIFT // SYSTEM READY</p>
+        <img class="vd-logo-img vd-boot-logo" src="${logoUrl}" alt="VECTOR DRIFT" />
+        <p class="vd-boot-sys">SYSTEM READY</p>
         <p class="vd-boot-enter">▶ PRESS ENTER</p>
         <p class="vd-boot-hint">tap / click anywhere to load fullscreen</p>
       </div>`;

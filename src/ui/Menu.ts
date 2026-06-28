@@ -2,8 +2,9 @@ import { SHIPS, getShipById, type ShipSpec } from "../config/ships";
 import { TRACKS } from "../config/tracks";
 import { logoMark, ICONS, shipIcon, trackThumb } from "./marks";
 import { ShipPreview } from "./ShipPreview";
+import type { AudioManager, Pool } from "../audio/AudioManager";
 
-type Screen = "main" | "garage" | "tracks";
+type Screen = "main" | "garage" | "tracks" | "music";
 
 interface GameMode {
   id: string;
@@ -22,6 +23,7 @@ const MODES: GameMode[] = [
   { id: "mp", name: "MULTIPLAYER", jp: "マルチプレイヤー", icon: ICONS.mp, playable: false },
   { id: "garage", name: "GARAGE", jp: "ガレージ", icon: ICONS.garage, playable: true },
   { id: "editor", name: "TRACK EDITOR", jp: "エディター", icon: ICONS.editor, playable: true },
+  { id: "music", name: "MUSIC", jp: "ミュージック", icon: ICONS.music, playable: true },
 ];
 
 function hex(c: ShipSpec): string {
@@ -49,12 +51,15 @@ export class Menu {
   /** Currently focused main-menu row (keyboard/gamepad cursor). */
   private focus = "quick";
   private useGyro = false;
+  /** Gamepad cursor on the music screen (0 = skip button, 1.. = track rows). */
+  private musicFocus = 0;
 
   constructor(
     container: HTMLElement,
     private isTouchDevice: boolean,
     private onStart: (ship: ShipSpec, mode: string, useGyro: boolean, trackId: string) => void,
-    private onEditor: () => void
+    private onEditor: () => void,
+    private audio: AudioManager
   ) {
     this.root = document.createElement("div");
     this.root.className = "vd-menu overlay";
@@ -80,7 +85,10 @@ export class Menu {
   private render(): void {
     if (this.screen === "main") this.renderMain();
     else if (this.screen === "garage") this.renderGarage();
-    else this.renderTracks();
+    else if (this.screen === "tracks") this.renderTracks();
+    else this.renderMusic();
+    // Main menu is a live autopilot flythrough; garage/tracks spin the model.
+    this.preview.setMode(this.screen === "main" ? "drive" : "showcase");
     this.preview.setShip(getShipById(this.selectedShipId));
     this.preview.setRing(this.screen === "garage");
     this.positionPreview();
@@ -90,12 +98,26 @@ export class Menu {
     return TRACKS.find((t) => t.id === id)?.name ?? "—";
   }
 
-  /** Overlay the preview canvas exactly on the current screen's hero element. */
+  /** Overlay the preview canvas on the current screen's hero element — or, on the
+   * main menu, full-bleed behind everything so the autopilot flythrough is an
+   * immersive backdrop rather than a boxed-in panel. */
   private positionPreview(): void {
-    const sel =
-      this.screen === "main" ? ".vd-hero" : this.screen === "garage" ? ".vd-garage-hero" : null;
+    if (this.root.style.display === "none") {
+      this.canvas.style.display = "none";
+      return;
+    }
+    if (this.screen === "main") {
+      this.canvas.style.display = "";
+      this.canvas.style.left = "0";
+      this.canvas.style.top = "0";
+      this.canvas.style.width = "100%";
+      this.canvas.style.height = "100%";
+      this.preview.resize();
+      return;
+    }
+    const sel = this.screen === "garage" ? ".vd-garage-hero" : null;
     const hero = sel ? (this.content.querySelector(sel) as HTMLElement | null) : null;
-    if (!hero || this.root.style.display === "none") {
+    if (!hero) {
       this.canvas.style.display = "none";
       return;
     }
@@ -156,8 +178,8 @@ export class Menu {
 
     this.content.innerHTML = `
       <div class="vd-shell">
-        <span class="vd-side-label" style="top:30vh;left:0.8vh">ENTER MENU</span>
-        <span class="vd-side-label" style="top:34vh;right:0.8vh">VECTOR DRIFT SYSTEM</span>
+        <span class="vd-side-label" style="top:30vh;left:1.6vh">ENTER MENU</span>
+        <span class="vd-side-label" style="top:30vh;right:1.6vh">VECTOR DRIFT SYSTEM</span>
         ${this.plusMarks()}
         <div class="vd-corner tl"></div>
 
@@ -239,6 +261,11 @@ export class Menu {
       this.goto("tracks");
       return;
     }
+    if (id === "music") {
+      this.musicFocus = 0;
+      this.goto("music");
+      return;
+    }
     const mode = MODES.find((m) => m.id === id);
     if (mode?.playable) {
       this.onStart(getShipById(this.selectedShipId), id, this.useGyro, this.selectedTrackId);
@@ -263,10 +290,12 @@ export class Menu {
       if (nav.left) this.cycle(-1);
       if (nav.right) this.cycle(1);
       if (nav.confirm || nav.back) this.goto("main");
-    } else {
+    } else if (this.screen === "tracks") {
       if (nav.left) this.cycleTrack(-1);
       if (nav.right) this.cycleTrack(1);
       if (nav.confirm || nav.back) this.goto("main");
+    } else {
+      this.handleMusicPad(nav);
     }
   }
 
@@ -419,6 +448,113 @@ export class Menu {
     const next = (idx + dir + TRACKS.length) % TRACKS.length;
     this.selectedTrackId = TRACKS[next].id;
     this.render();
+  }
+
+  // ---- music: per-track pool curation --------------------------------------
+
+  private renderMusic(): void {
+    this.root.className = "vd-menu overlay vd-screen-music";
+    const tracks = this.audio.tracks();
+    const np = this.audio.currentTrack;
+
+    const rows = tracks
+      .map((t, i) => {
+        const menuOn = this.audio.isEnabled(t, "menu");
+        const raceOn = this.audio.isEnabled(t, "race");
+        const foc = this.musicFocus === i + 1 ? "foc" : "";
+        return `
+        <div class="vd-mus-row ${foc}" data-i="${i}">
+          <span class="vd-mus-kind k-${t.kind}">${t.kind}</span>
+          <span class="vd-mus-meta"><b>${t.title}</b><span>${t.artist}</span></span>
+          <button class="vd-mus-tog ${menuOn ? "on" : ""}" data-i="${i}" data-pool="menu">MENU</button>
+          <button class="vd-mus-tog ${raceOn ? "on" : ""}" data-i="${i}" data-pool="race">RACE</button>
+        </div>`;
+      })
+      .join("");
+
+    this.content.innerHTML = `
+      <div class="vd-shell">
+        ${this.plusMarks()}
+        <header class="vd-topbar">
+          <div class="vd-brand vd-brand--garage">
+            <span class="vd-badge">${logoMark()}</span>
+            <span>
+              <span class="vd-brand-name">MUSIC</span>
+              <span class="vd-brand-jp">ミュージック</span>
+            </span>
+          </div>
+          <div class="vd-mus-now">
+            <span class="vd-mus-now-k">NOW PLAYING <i>再生中</i></span>
+            <span class="vd-mus-now-t">${np ? `${np.title} — ${np.artist}` : "—"}</span>
+            <button class="vd-mus-skip ${this.musicFocus === 0 ? "foc" : ""}">⏭ SKIP</button>
+          </div>
+        </header>
+
+        <p class="vd-mus-hint">Choose which tracks play in the MENU pool and the RACE pool. Disabled tracks are skipped in that context.</p>
+        <div class="vd-mus-list">${rows}</div>
+
+        <footer class="vd-botbar">
+          <button class="vd-act back-act"><span class="ring">✕</span> BACK</button>
+        </footer>
+      </div>`;
+
+    this.content.querySelectorAll<HTMLButtonElement>(".vd-mus-tog").forEach((b) => {
+      b.addEventListener("click", () => {
+        const i = parseInt(b.dataset.i!, 10);
+        const pool = b.dataset.pool as Pool;
+        const on = !this.audio.isEnabled(tracks[i], pool);
+        this.audio.setEnabled(tracks[i], pool, on);
+        b.classList.toggle("on", on);
+      });
+    });
+    this.content.querySelector<HTMLButtonElement>(".vd-mus-skip")!.addEventListener("click", () => {
+      this.audio.skip();
+      this.refreshNowPlaying();
+    });
+    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
+  }
+
+  private refreshNowPlaying(): void {
+    const el = this.content.querySelector(".vd-mus-now-t");
+    const np = this.audio.currentTrack;
+    if (el) el.textContent = np ? `${np.title} — ${np.artist}` : "—";
+  }
+
+  private scrollMusicFocus(): void {
+    const el = this.content.querySelector(".vd-mus-row.foc, .vd-mus-skip.foc");
+    el?.scrollIntoView({ block: "nearest" });
+  }
+
+  private handleMusicPad(nav: { up: boolean; down: boolean; left: boolean; right: boolean; confirm: boolean; back: boolean }): void {
+    if (nav.back) {
+      this.goto("main");
+      return;
+    }
+    const n = this.audio.tracks().length;
+    if (nav.up || nav.down) {
+      const slots = n + 1; // skip button + one per track
+      this.musicFocus = (this.musicFocus + (nav.down ? 1 : -1) + slots) % slots;
+      this.renderMusic();
+      this.scrollMusicFocus();
+      return;
+    }
+    if (this.musicFocus === 0) {
+      if (nav.confirm) {
+        this.audio.skip();
+        this.refreshNowPlaying();
+      }
+      return;
+    }
+    const t = this.audio.tracks()[this.musicFocus - 1];
+    if (nav.left || nav.confirm) {
+      this.audio.setEnabled(t, "menu", !this.audio.isEnabled(t, "menu"));
+      this.renderMusic();
+      this.scrollMusicFocus();
+    } else if (nav.right) {
+      this.audio.setEnabled(t, "race", !this.audio.isEnabled(t, "race"));
+      this.renderMusic();
+      this.scrollMusicFocus();
+    }
   }
 
   private goto(screen: Screen): void {

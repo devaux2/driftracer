@@ -1,4 +1,4 @@
-import { logoMark } from "./marks";
+import logoUrl from "../assets/logo.png";
 
 /**
  * Title / boot screen (VECTOR DRIFT). Styled as a red "initialising systems"
@@ -24,9 +24,7 @@ export class Splash {
       <span class="vd-plus" style="top:42vh;left:6%">+</span>
 
       <div class="vd-splash-center">
-        ${logoMark()}
-        <h1 class="vd-wordmark">VECTOR DRIFT</h1>
-        <p class="vd-jp">ベクタードリフト</p>
+        <img class="vd-logo-img" src="${logoUrl}" alt="VECTOR DRIFT" />
         <p class="vd-tapstart">▶ PRESS TO START</p>
       </div>
 

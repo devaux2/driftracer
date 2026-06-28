@@ -124,12 +124,14 @@ export class Game {
     this.results = new Results(this.container);
     this.ghost = new Ghost(this.scene);
 
+    this.audio = new AudioManager();
     this.menu = new Menu(
       this.container,
       this.input.isTouchDevice,
       (ship, mode, useGyro, trackId) =>
         this.startRace(ship, mode === "time" ? "time" : "quick", useGyro, trackId),
-      () => this.openEditor()
+      () => this.openEditor(),
+      this.audio
     );
 
     this.editor = new Editor(
@@ -140,7 +142,6 @@ export class Game {
       (file) => this.importTrackFromFile(file)
     );
 
-    this.audio = new AudioManager();
     this.nowPlaying = new NowPlaying(this.container);
     this.audio.onTrack = (t) => {
       this.nowPlaying.show(t);
@@ -155,6 +156,11 @@ export class Game {
       onFullscreen: () => void this.enterFullscreen(),
       onMusicVol: (v) => this.audio.setMusicVolume(v),
       onSfxVol: (v) => this.audio.setSfxVolume(v),
+      onSkip: () => {
+        this.audio.skip();
+        const t = this.audio.currentTrack;
+        this.pauseMenu.setNowPlaying(t ? `${t.title} — ${t.artist}` : "");
+      },
     });
     this.menu.show(false); // hidden until PLAY is clicked on the title screen
 
@@ -565,11 +571,18 @@ export class Game {
   private openPause(): void {
     this.paused = true;
     this.hud.setWrongWay(false);
-    this.pauseMenu.show(this.audio.musicVolume, this.audio.sfxVolume);
+    this.audio.pause(); // pausing the game pauses the music
+    const np = this.audio.currentTrack;
+    this.pauseMenu.show(
+      this.audio.musicVolume,
+      this.audio.sfxVolume,
+      np ? `${np.title} — ${np.artist}` : ""
+    );
   }
 
   private resumeRace(): void {
     this.paused = false;
+    this.audio.resume();
     this.pauseMenu.hide();
   }
 

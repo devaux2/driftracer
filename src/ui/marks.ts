@@ -28,6 +28,7 @@ export const ICONS: Record<string, string> = {
   garage: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><path d="M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="miter"/></svg>`,
   editor: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><path d="M4 20 L4 16 L14.5 5.5 L18.5 9.5 L8 20 Z M14.5 5.5 L17 3 L21 7 L18.5 9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
   track: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><ellipse cx="12" cy="12" rx="9" ry="6" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="5" cy="12" r="1.7" fill="currentColor"/></svg>`,
+  music: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><path d="M9 18 V6 L19 4 V16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="16.5" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>`,
 };
 
 /** Mini top-down outline of a track's centre-line, for the map picker. */

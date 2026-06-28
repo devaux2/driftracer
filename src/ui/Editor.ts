@@ -296,8 +296,11 @@ export class Editor {
 
   // ---- side-on elevation view ---------------------------------------------
 
-  private static readonly Y_MIN = -30;
-  private static readonly Y_MAX = 30;
+  // Big vertical range so authored hills/drops actually read as dramatic
+  // elevation changes (the old ±30 made even a full-range drop feel tiny next to
+  // the track's huge horizontal scale).
+  private static readonly Y_MIN = -160;
+  private static readonly Y_MAX = 160;
 
   /** Cumulative XZ distance to each control point, normalised 0..1 over the
    * full closed loop — the x-axis of the elevation profile. */
@@ -539,7 +542,7 @@ export class Editor {
       selHtml = `
         <div class="vd-ed-sel">
           <div class="vd-ed-row"><span>POINT ${this.sel.index}${this.sel.index === 0 ? " (START)" : ""}</span></div>
-          <label>HEIGHT <input type="range" id="ed-h" min="-30" max="30" step="1" value="${p[1]}"><b id="ed-hv">${p[1]}</b></label>
+          <label>HEIGHT <input type="range" id="ed-h" min="-160" max="160" step="2" value="${p[1]}"><b id="ed-hv">${p[1]}</b></label>
           <button class="vd-ed-del">DELETE POINT</button>
         </div>`;
     } else if (this.sel?.type === "pad") {
