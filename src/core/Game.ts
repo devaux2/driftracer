@@ -22,7 +22,8 @@ import { Minimap } from "../race/Minimap";
 import { Ghost } from "../race/Ghost";
 import { loadRecord, saveRecord, type GhostFrame } from "../race/records";
 import { Results } from "../ui/Results";
-import { getTrackById } from "../config/tracks";
+import { Editor } from "../ui/Editor";
+import { getTrackById, type TrackSpec } from "../config/tracks";
 import { RACER_NAMES, SHIPS, type ShipSpec } from "../config/ships";
 
 const RACER_COUNT = 12; // player + 11 bots (quick race)
@@ -31,7 +32,7 @@ const COUNTDOWN = 3; // seconds (3-2-1)
 const GHOST_SAMPLE = 0.033; // ~30 fps recording
 
 type RaceMode = "quick" | "time";
-type GameMode = "menu" | "racing";
+type GameMode = "menu" | "racing" | "editor";
 type RacePhase = "countdown" | "running" | "finished";
 
 const PAD_TRIGGER_RADIUS = 8;
@@ -59,6 +60,7 @@ export class Game {
   private minimap: Minimap;
   private results: Results;
   private ghost: Ghost;
+  private editor: Editor;
 
   private track: Track;
   private ship: Ship | null = null;
@@ -105,8 +107,17 @@ export class Game {
     this.results = new Results(this.container);
     this.ghost = new Ghost(this.scene);
 
-    this.menu = new Menu(this.container, this.input.isTouchDevice, (ship, mode, useGyro) =>
-      this.startRace(ship, mode === "time" ? "time" : "quick", useGyro)
+    this.menu = new Menu(
+      this.container,
+      this.input.isTouchDevice,
+      (ship, mode, useGyro) => this.startRace(ship, mode === "time" ? "time" : "quick", useGyro),
+      () => this.openEditor()
+    );
+
+    this.editor = new Editor(
+      this.container,
+      (spec) => this.testTrack(spec),
+      () => this.exitEditor()
     );
     this.menu.show(false); // hidden until PLAY is clicked on the title screen
 
@@ -298,6 +309,33 @@ export class Game {
     this.menu.show(true);
   }
 
+  // ---- track editor --------------------------------------------------------
+
+  private openEditor(): void {
+    this.menu.show(false);
+    this.editor.open();
+    this.mode = "editor";
+  }
+
+  private exitEditor(): void {
+    this.editor.close();
+    this.returnToMenu();
+  }
+
+  /** Rebuild the active track from a spec (editor swap / custom track). */
+  private loadTrackSpec(spec: TrackSpec): void {
+    this.track.dispose();
+    this.track = new Track(this.scene, spec);
+    this.minimap.setTrack(this.track);
+  }
+
+  /** Test-drive the track currently in the editor: load it and run a solo lap. */
+  private testTrack(spec: TrackSpec): void {
+    this.editor.close();
+    this.loadTrackSpec(spec);
+    this.startRace(this.lastSpec, "time", this.lastUseGyro);
+  }
+
   /** Race position = 1 + the number of racers further around the track. */
   private playerPosition(): number {
     if (!this.ship) return 1;
@@ -323,8 +361,8 @@ export class Game {
         this.speedLines.render(dt, 0, 0);
       }
     } else {
-      this.handleMenuPad();
-      // Keep the scene alive behind the menu.
+      if (this.mode === "menu") this.handleMenuPad();
+      // Keep the scene alive behind the menu / editor.
       this.speedLines.render(dt, 0, 0);
     }
 

@@ -52,6 +52,8 @@ export class Track {
   readonly startForward = new Vector3(0, 0, 1);
 
   road!: Mesh;
+  /** Every mesh this track owns, so it can be torn down on a rebuild. */
+  private meshes: Mesh[] = [];
 
   constructor(scene: Scene, spec: TrackSpec) {
     this.spec = spec;
@@ -125,6 +127,7 @@ export class Track {
     mat.emissiveColor = new Color3(0.55, 0.6, 0.7);
     mat.specularColor = new Color3(0.04, 0.04, 0.06);
     this.road.material = mat;
+    this.meshes.push(this.road);
 
     this.buildEdgeRails(scene);
     this.buildStartLine(scene);
@@ -168,6 +171,7 @@ export class Track {
         scene
       );
       rail.material = mat;
+      this.meshes.push(rail);
     }
   }
 
@@ -186,6 +190,7 @@ export class Track {
     mat.emissiveColor = new Color3(1, 1, 1);
     mat.diffuseColor = new Color3(0.8, 0.8, 0.8);
     plane.material = mat;
+    this.meshes.push(plane);
     // suppress unused-var lint on r in case future banking uses it
     void r;
   }
@@ -224,8 +229,16 @@ export class Track {
       }
       mesh.material = mat;
 
+      this.meshes.push(mesh);
       this.pads.push({ kind: p.kind, position: pos, forward: f.clone(), mesh, power, cooldown: 0 });
     }
+  }
+
+  /** Tear down all geometry this track created (for a rebuild/track-swap). */
+  dispose(): void {
+    for (const m of this.meshes) m.dispose(false, true);
+    this.meshes = [];
+    this.pads.length = 0;
   }
 
   // ---- queries --------------------------------------------------------------

@@ -37,6 +37,11 @@ export class Minimap {
     this.fit(track.centerlineXZ());
   }
 
+  /** Re-fit to a different track (after an editor swap). */
+  setTrack(track: Track): void {
+    this.fit(track.centerlineXZ());
+  }
+
   private fit(pts: Pt[]): void {
     let minX = Infinity,
       maxX = -Infinity,

@@ -26,6 +26,7 @@ export const ICONS: Record<string, string> = {
   gp: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><path d="M6 3 H18 V8 A6 6 0 0 1 6 8 Z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M6 5 H3 V7 A3 3 0 0 0 6 10 M18 5 H21 V7 A3 3 0 0 1 18 10" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 14 V18 M8 21 H16 M9.5 18 H14.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg>`,
   mp: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 12 H21 M12 3 C7 7 7 17 12 21 C17 17 17 7 12 3" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>`,
   garage: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><path d="M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="miter"/></svg>`,
+  editor: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><path d="M4 20 L4 16 L14.5 5.5 L18.5 9.5 L8 20 Z M14.5 5.5 L17 3 L21 7 L18.5 9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
 };
 
 /**

@@ -19,6 +19,7 @@ const MODES: GameMode[] = [
   { id: "gp", name: "GRAND PRIX", jp: "グランプリ", icon: ICONS.gp, playable: false },
   { id: "mp", name: "MULTIPLAYER", jp: "マルチプレイヤー", icon: ICONS.mp, playable: false },
   { id: "garage", name: "GARAGE", jp: "ガレージ", icon: ICONS.garage, playable: true },
+  { id: "editor", name: "TRACK EDITOR", jp: "エディター", icon: ICONS.editor, playable: true },
 ];
 
 function hex(c: ShipSpec): string {
@@ -49,7 +50,8 @@ export class Menu {
   constructor(
     container: HTMLElement,
     private isTouchDevice: boolean,
-    private onStart: (ship: ShipSpec, mode: string, useGyro: boolean) => void
+    private onStart: (ship: ShipSpec, mode: string, useGyro: boolean) => void,
+    private onEditor: () => void
   ) {
     this.root = document.createElement("div");
     this.root.className = "vd-menu overlay";
@@ -190,10 +192,14 @@ export class Menu {
     this.activate(id);
   }
 
-  /** Act on a row: open the garage, or start a playable mode. */
+  /** Act on a row: open the garage/editor, or start a playable mode. */
   private activate(id: string): void {
     if (id === "garage") {
       this.goto("garage");
+      return;
+    }
+    if (id === "editor") {
+      this.onEditor();
       return;
     }
     const mode = MODES.find((m) => m.id === id);

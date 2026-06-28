@@ -906,3 +906,150 @@
 .results .back-btn {
   font-family: var(--vd-display);
 }
+
+/* ============================================================================
+   TRACK EDITOR
+   ============================================================================ */
+.vd-editor {
+  background: radial-gradient(circle at 40% 40%, #14141a 0%, #07070a 70%);
+  color: #fff;
+  font-family: var(--vd-display);
+  align-items: stretch;
+  justify-content: stretch;
+  display: flex;
+}
+.vd-ed-canvas {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+.vd-ed-panel {
+  flex: 0 0 clamp(220px, 26vw, 320px);
+  background: rgba(10, 11, 16, 0.92);
+  border-left: 1px solid rgba(255, 30, 90, 0.3);
+  padding: 2.2vh 1.6vw;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4vh;
+  overflow-y: auto;
+}
+.vd-ed-title {
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.1em;
+  color: var(--vd-pink);
+  font-size: clamp(1.1rem, 3vh, 1.6rem);
+}
+.vd-ed-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6vh;
+}
+.vd-ed-tool {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-family: var(--vd-display);
+  letter-spacing: 0.05em;
+  padding: 0.9vh 0.4vw;
+  cursor: pointer;
+  font-size: clamp(0.7rem, 1.7vh, 0.95rem);
+}
+.vd-ed-tool.on {
+  border-color: var(--vd-lime);
+  background: rgba(215, 255, 55, 0.14);
+  color: var(--vd-lime);
+}
+.vd-ed-panel label {
+  display: flex;
+  align-items: center;
+  gap: 0.6vw;
+  font-size: clamp(0.66rem, 1.6vh, 0.9rem);
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.8);
+}
+.vd-ed-panel input[type="range"] {
+  flex: 1;
+  accent-color: var(--vd-pink);
+  min-width: 0;
+}
+.vd-ed-panel label b {
+  color: var(--vd-lime);
+  min-width: 2.4em;
+  text-align: right;
+}
+.vd-ed-sel {
+  border: 1px solid rgba(120, 200, 255, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1.2vh 0.8vw;
+  display: flex;
+  flex-direction: column;
+  gap: 1vh;
+}
+.vd-ed-row span {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #fff;
+}
+.vd-ed-hint {
+  font-size: clamp(0.66rem, 1.6vh, 0.85rem);
+  opacity: 0.55;
+  line-height: 1.4;
+}
+.vd-ed-del {
+  background: none;
+  border: 1px solid var(--vd-pink);
+  color: var(--vd-pink);
+  font-family: var(--vd-display);
+  letter-spacing: 0.1em;
+  padding: 0.6vh 0.6vw;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.vd-ed-actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8vh;
+}
+.vd-ed-actions .start-btn {
+  margin: 0;
+  font-size: clamp(0.9rem, 2.2vh, 1.2rem);
+  padding: 1vh 0;
+  background: linear-gradient(100deg, var(--vd-pink), var(--vd-pink-deep));
+  color: #fff;
+  border: 0;
+  font-family: var(--vd-display);
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.12em;
+  clip-path: var(--chamfer);
+  cursor: pointer;
+}
+.vd-ed-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5vw;
+}
+.vd-ed-actions-row button {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-family: var(--vd-display);
+  letter-spacing: 0.06em;
+  padding: 0.7vh 0;
+  cursor: pointer;
+  font-size: clamp(0.62rem, 1.5vh, 0.8rem);
+}
+.vd-ed-back {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-family: var(--vd-display);
+  letter-spacing: 0.1em;
+  padding: 0.8vh 0;
+  cursor: pointer;
+}
