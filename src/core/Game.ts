@@ -142,7 +142,10 @@ export class Game {
 
     this.audio = new AudioManager();
     this.nowPlaying = new NowPlaying(this.container);
-    this.audio.onTrack = (t) => this.nowPlaying.show(t);
+    this.audio.onTrack = (t) => {
+      this.nowPlaying.show(t);
+      this.hud.setNowPlaying(t.title, t.artist);
+    };
     this.pauseMenu = new PauseMenu(this.container, {
       onResume: () => this.resumeRace(),
       onQuit: () => {

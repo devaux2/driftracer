@@ -139,6 +139,11 @@ export class HUD {
     /* mobile HUD has no track card */
   }
 
+  /** No-op on the touch HUD (desktop HUD has the now-playing ticker). */
+  setNowPlaying(_title: string, _artist: string): void {
+    /* mobile shows the slide-in now-playing popup instead */
+  }
+
   setStandings(rows: { pos: number; name: string; you: boolean; gap?: number }[]): void {
     if (!rows.length) {
       this.standingsPanel.classList.remove("on");

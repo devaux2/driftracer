@@ -45,9 +45,12 @@ export class DesktopHud {
     this.root = document.createElement("div");
     this.root.className = "dhud";
     this.root.innerHTML = `
-      <header class="dhud-brand">
-        <span class="dhud-mark">${logoMark()}</span>
-        <span class="dhud-brand-txt">VECTOR DRIFT <b>ベクタードリフト</b></span>
+      <header class="dhud-ticker">
+        <span class="dhud-eq"><i></i><i></i><i></i><i></i></span>
+        <span class="dhud-tick">
+          <b class="dhud-tick-k">NOW PLAYING <i>再生中</i></b>
+          <span class="d-now">—</span>
+        </span>
       </header>
 
       <div class="dhud-panel dhud-pos">
@@ -96,7 +99,7 @@ export class DesktopHud {
     for (const k of [
       "d-pos", "d-pos-tot", "d-lap", "d-lap-tot", "d-time", "d-best", "d-last",
       "d-nearby-list", "d-track", "d-track-km", "d-track-jp", "d-speed",
-      "d-boost-bar", "dhud-countdown", "dhud-wrong",
+      "d-boost-bar", "dhud-countdown", "dhud-wrong", "d-now",
     ]) {
       this.el[k] = q(`.${k}`);
     }
@@ -113,6 +116,11 @@ export class DesktopHud {
   setTotalLaps(n: number): void {
     this.totalLaps = n;
     this.root.querySelector(".d-pos-tot");
+  }
+
+  /** Update the top now-playing ticker with the current track. */
+  setNowPlaying(title: string, artist: string): void {
+    this.el["d-now"].textContent = `${title} — ${artist}`;
   }
 
   setTrackInfo(name: string, km: string): void {
