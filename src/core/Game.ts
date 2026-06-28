@@ -25,6 +25,9 @@ import { Ghost } from "../race/Ghost";
 import { loadRecord, saveRecord, type GhostFrame } from "../race/records";
 import { Results } from "../ui/Results";
 import { Editor } from "../ui/Editor";
+import { AudioManager } from "../audio/AudioManager";
+import { NowPlaying } from "../ui/NowPlaying";
+import { PauseMenu } from "../ui/PauseMenu";
 import { getTrackById, type TrackSpec } from "../config/tracks";
 import { RACER_NAMES, SHIPS, type ShipSpec } from "../config/ships";
 
@@ -63,6 +66,10 @@ export class Game {
   private results: Results;
   private ghost: Ghost;
   private editor: Editor;
+  private audio: AudioManager;
+  private nowPlaying: NowPlaying;
+  private pauseMenu: PauseMenu;
+  private paused = false;
 
   private track: Track;
   private ship: Ship | null = null;
@@ -128,6 +135,20 @@ export class Game {
       (spec) => void this.exportTrack(spec),
       (file) => this.importTrackFromFile(file)
     );
+
+    this.audio = new AudioManager();
+    this.nowPlaying = new NowPlaying(this.container);
+    this.audio.onTrack = (t) => this.nowPlaying.show(t);
+    this.pauseMenu = new PauseMenu(this.container, {
+      onResume: () => this.resumeRace(),
+      onQuit: () => {
+        this.resumeRace();
+        this.returnToMenu();
+      },
+      onFullscreen: () => void this.enterFullscreen(),
+      onMusicVol: (v) => this.audio.setMusicVolume(v),
+      onSfxVol: (v) => this.audio.setSfxVolume(v),
+    });
     this.menu.show(false); // hidden until PLAY is clicked on the title screen
 
     // Boot gate first: it captures the first user gesture so we can go
@@ -140,6 +161,7 @@ export class Game {
       this.splash = new Splash(this.container, () => {
         this.splash = null;
         void this.enterFullscreen();
+        this.audio.start(); // begin the OST (this click is the required gesture)
         this.menu.show(true);
       });
     });
@@ -217,6 +239,8 @@ export class Game {
     this.lastSpec = spec;
     this.lastUseGyro = useGyro;
     this.results.hide();
+    this.paused = false;
+    this.pauseMenu.hide();
 
     const fwd = this.track.startForward;
     const right = new Vector3(fwd.z, 0, -fwd.x);
@@ -294,6 +318,11 @@ export class Game {
     this.mode = "racing";
   }
 
+  /** Exposed for debugging / smoke tests (e.g. injecting a test track). */
+  get audioManager(): AudioManager {
+    return this.audio;
+  }
+
   /** Read-only telemetry for debugging / automated smoke tests. */
   get telemetry() {
     if (!this.ship) return null;
@@ -314,6 +343,8 @@ export class Game {
 
   private returnToMenu(): void {
     this.mode = "menu";
+    this.paused = false;
+    this.pauseMenu.hide();
     this.hud.show(false);
     this.hud.setCountdown(null);
     this.hud.setWrongWay(false);
@@ -460,7 +491,9 @@ export class Game {
     this.lastSteer = ctrl.steer;
 
     if (this.mode === "racing" && this.ship) {
-      if (this.phase === "countdown") {
+      if (this.paused) {
+        this.tickPaused(dt, ctrl);
+      } else if (this.phase === "countdown") {
         this.tickCountdown(dt);
       } else if (this.phase === "running") {
         this.tickRunning(dt, ctrl);
@@ -508,6 +541,33 @@ export class Game {
     }
     this.camera.update(dt, this.ship, this.track);
     this.hud.update(this.ship);
+    this.speedLines.render(dt, 0, 0);
+  }
+
+  private openPause(): void {
+    this.paused = true;
+    this.hud.setWrongWay(false);
+    this.pauseMenu.show(this.audio.musicVolume, this.audio.sfxVolume);
+  }
+
+  private resumeRace(): void {
+    this.paused = false;
+    this.pauseMenu.hide();
+  }
+
+  /** While paused: freeze physics, keep the scene/camera alive, and let the
+   * pause menu be driven by gamepad (mouse/keyboard work via the DOM). */
+  private tickPaused(dt: number, ctrl: ReturnType<InputManager["update"]>): void {
+    if (!this.ship) return;
+    if (ctrl.pause) {
+      this.resumeRace();
+      return;
+    }
+    const nav = this.input.gamepad.getNav();
+    if (nav.up || nav.down || nav.left || nav.right || nav.confirm || nav.back) {
+      this.pauseMenu.handlePad(nav);
+    }
+    this.camera.update(dt, this.ship, this.track);
     this.speedLines.render(dt, 0, 0);
   }
 
@@ -576,7 +636,7 @@ export class Game {
       this.finishRace();
       return;
     }
-    if (ctrl.pause) this.returnToMenu();
+    if (ctrl.pause) this.openPause();
   }
 
   /** Called the frame a lap counter ticks over. Persists a new ghost/best-lap

@@ -22,9 +22,11 @@ export class TouchInput implements InputSource {
   private stickBase: HTMLDivElement;
   private stickThumb: HTMLDivElement;
   private brakeBtn: HTMLButtonElement;
+  private pauseBtn: HTMLButtonElement;
 
   private steer = 0;
   private brakeHeld = false;
+  private pauseEdge = false;
   private active = false;
   private steeringEnabled = true;
 
@@ -48,11 +50,16 @@ export class TouchInput implements InputSource {
     this.stickBase.appendChild(this.stickThumb);
 
     this.brakeBtn = this.makeButton("action-btn brake", "BRAKE");
+    this.pauseBtn = this.makeButton("pause-touch", "❚❚");
 
     this.bindStick();
     this.bindHold(this.brakeBtn, (down) => (this.brakeHeld = down));
+    this.pauseBtn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      this.pauseEdge = true;
+    });
 
-    this.root.append(this.stickZone, this.stickBase, this.brakeBtn);
+    this.root.append(this.stickZone, this.stickBase, this.brakeBtn, this.pauseBtn);
     container.appendChild(this.root);
   }
 
@@ -161,6 +168,10 @@ export class TouchInput implements InputSource {
   contribute(out: ControlState): void {
     if (this.steeringEnabled && Math.abs(this.steer) > 0.03) out.steer = this.steer;
     if (this.brakeHeld) out.brake = 1;
+    if (this.pauseEdge) {
+      out.pause = true;
+      this.pauseEdge = false;
+    }
   }
 
   isActive(): boolean {

@@ -659,6 +659,17 @@ body,
   background: rgba(255, 61, 166, 0.3);
   border-color: var(--accent-2);
 }
+/* small touch-only pause button (sits left of the minimap, top-right) */
+.pause-touch {
+  top: max(0.9rem, env(safe-area-inset-top));
+  right: calc(max(1rem, env(safe-area-inset-right)) + 160px);
+  width: 42px;
+  height: 42px;
+  font-size: 0.8rem;
+  letter-spacing: 0;
+  display: grid;
+  place-items: center;
+}
 
 /* ---- countdown (screen-filling) ---- */
 .countdown {
