@@ -6,7 +6,6 @@ import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
-import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
@@ -50,7 +49,7 @@ export class ShipPreview {
   private cam: ArcRotateCamera;
   private chase: UniversalCamera;
   private hull: TransformNode | null = null;
-  private ring: Mesh;
+  private ring: TransformNode;
   private active = false;
   private lastSpec: ShipSpec | null = null;
   private mode: PreviewMode = "showcase";
@@ -90,14 +89,28 @@ export class ShipPreview {
     const dir = new DirectionalLight("pd", new Vector3(-0.5, -0.6, 0.6), this.scene);
     dir.intensity = 0.9;
 
-    // Neon platform ring beneath the ship (garage). Part of the 3D scene so it
-    // always sits correctly *behind* the craft.
-    this.ring = MeshBuilder.CreateTorus("ring", { diameter: 10, thickness: 0.16, tessellation: 72 }, this.scene);
+    // Neon platform ring beneath the ship (garage). A *broken* segmented ring
+    // (per the visual system: clean gaps, no full glowing circle). Part of the
+    // 3D scene so it always sits correctly *behind* the craft.
+    this.ring = new TransformNode("ringGroup", this.scene);
     this.ring.position.y = -1.4;
     const ringMat = new StandardMaterial("ringMat", this.scene);
-    ringMat.emissiveColor = new Color3(1, 0.12, 0.36);
+    ringMat.emissiveColor = new Color3(0.96, 0.02, 0.31); // VD_PINK
     ringMat.disableLighting = true;
-    this.ring.material = ringMat;
+    const R = 5;
+    const SEGS = 5;
+    const span = ((Math.PI * 2) / SEGS) * 0.62; // 62% arc, 38% gap
+    for (let s = 0; s < SEGS; s++) {
+      const a0 = (s / SEGS) * Math.PI * 2;
+      const path: Vector3[] = [];
+      for (let i = 0; i <= 18; i++) {
+        const a = a0 + (i / 18) * span;
+        path.push(new Vector3(Math.cos(a) * R, 0, Math.sin(a) * R));
+      }
+      const seg = MeshBuilder.CreateTube(`ringSeg${s}`, { path, radius: 0.13, tessellation: 8, cap: 3 }, this.scene);
+      seg.material = ringMat;
+      seg.parent = this.ring;
+    }
     this.ring.setEnabled(false);
 
     // Load the shared GLB into this scene; rebuild the current ship once ready.

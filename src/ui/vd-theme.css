@@ -1173,7 +1173,7 @@
 .now-playing {
   position: absolute;
   left: max(1rem, env(safe-area-inset-left));
-  bottom: max(1rem, env(safe-area-inset-bottom));
+  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 3.6rem); /* clear the footer / bottom HUD */
   z-index: 40;
   display: flex;
   align-items: center;
@@ -1681,7 +1681,7 @@
   margin-left: auto;
 }
 .vd-mus-now-k {
-  font-size: 1.2vh;
+  font-size: clamp(0.55rem, 1.2vh, 0.78rem);
   letter-spacing: 0.26em;
   color: rgba(255, 255, 255, 0.5);
 }
@@ -1692,7 +1692,7 @@
   margin-left: 0.4em;
 }
 .vd-mus-now-t {
-  font-size: 1.7vh;
+  font-size: clamp(0.72rem, 1.7vh, 1.05rem);
   font-weight: 600;
   color: #fff;
   max-width: 34vw;
@@ -1717,7 +1717,7 @@
   box-shadow: 0 0 16px rgba(215, 255, 55, 0.35);
 }
 .vd-mus-hint {
-  font-size: 1.4vh;
+  font-size: clamp(0.62rem, 1.4vh, 0.9rem);
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.5);
   margin: 0.4vh 0 1vh;
@@ -1734,8 +1734,8 @@
 .vd-mus-row {
   display: flex;
   align-items: center;
-  gap: 1.2vh;
-  padding: 0.9vh 1.4vh;
+  gap: clamp(0.6rem, 1.2vh, 1rem);
+  padding: clamp(0.5rem, 0.9vh, 0.8rem) clamp(0.7rem, 1.4vh, 1.1rem);
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.12);
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 10px 100%, 0 100%);
@@ -1746,9 +1746,9 @@
   box-shadow: 0 0 14px rgba(215, 255, 55, 0.25);
 }
 .vd-mus-kind {
-  flex: 0 0 5.4em;
+  flex: 0 0 5em;
   text-align: center;
-  font-size: 1.1vh;
+  font-size: clamp(0.55rem, 1.1vh, 0.72rem);
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -1767,14 +1767,14 @@
   line-height: 1.15;
 }
 .vd-mus-meta b {
-  font-size: 1.8vh;
+  font-size: clamp(0.85rem, 1.8vh, 1.15rem);
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .vd-mus-meta span {
-  font-size: 1.3vh;
+  font-size: clamp(0.62rem, 1.3vh, 0.85rem);
   color: rgba(255, 255, 255, 0.5);
   white-space: nowrap;
   overflow: hidden;
@@ -1788,8 +1788,8 @@
   font-family: var(--vd-display);
   font-weight: 700;
   letter-spacing: 0.14em;
-  font-size: 1.3vh;
-  padding: 0.5vh 1.2vh;
+  font-size: clamp(0.62rem, 1.3vh, 0.85rem);
+  padding: clamp(0.4rem, 0.6vh, 0.7rem) clamp(0.7rem, 1.4vh, 1.1rem);
   cursor: pointer;
   border-radius: 2px;
 }
@@ -1822,4 +1822,37 @@
 .vd-act .ring {
   line-height: 1;
   padding-bottom: 0.1vh;
+}
+
+/* ============================================================================
+   SHORT-VIEWPORT (landscape phone) — keep the front-end dense screens fitting
+   and legible. The desktop layout (tall viewports) is unaffected.
+   ========================================================================== */
+@media (max-height: 600px) {
+  .vd-shell { padding: 1.6vh 2.6vh; gap: 0.9vh; }
+  .vd-badge { width: clamp(30px, 8vh, 46px); }
+  .vd-brand-name { font-size: clamp(1rem, 5vh, 1.5rem); }
+  .vd-brand-jp { font-size: clamp(0.58rem, 2vh, 0.85rem); letter-spacing: 0.24em; }
+
+  .vd-menu-body { gap: 2vh; align-items: stretch; }
+  .vd-modes { gap: 0.7vh; flex-basis: 50%; justify-content: center; }
+  .vd-modes-bracket { display: none; }
+  .vd-mode { padding: 0.7vh 1.6vh; gap: 1.4vh;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%); }
+  .vd-mode.sel { transform: scale(1.02); }
+  .vd-mode .vd-ic { width: clamp(15px, 3.2vh, 22px); height: clamp(15px, 3.2vh, 22px); }
+  .vd-mode-name { font-size: clamp(0.82rem, 3.4vh, 1.05rem); letter-spacing: 0.05em; }
+  .vd-mode-jp { font-size: clamp(0.52rem, 1.7vh, 0.72rem); margin-top: 0.1vh; }
+  .vd-mode .soon-tag { top: 0.6vh; right: 2.6vh; font-size: 1.1vh; }
+
+  .vd-botbar .vd-act { font-size: clamp(0.78rem, 2.4vh, 1rem); }
+  .vd-act .ring { width: 2.6vh; height: 2.6vh; font-size: 1.5vh; }
+}
+
+/* iPhone-SE-class landscape: squeeze a touch more. */
+@media (max-height: 430px) {
+  .vd-shell { padding: 1.2vh 2.2vh; gap: 0.6vh; }
+  .vd-modes { gap: 0.5vh; }
+  .vd-mode { padding: 0.55vh 1.4vh; }
+  .vd-mode-jp { display: none; } /* drop the sublabel when there's no room */
 }
