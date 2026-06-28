@@ -936,6 +936,128 @@
 }
 
 /* ============================================================================
+   DESKTOP-ONLY UI (mobile keeps the touch-first layout untouched)
+   ============================================================================ */
+/* extra lap split + standings board only exist on desktop */
+.time-last {
+  display: none;
+}
+.is-desktop .time-last {
+  font-family: var(--vd-display);
+  display: block;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  opacity: 0.5;
+}
+
+.standings {
+  display: none;
+  top: 200px;
+  right: max(1rem, env(safe-area-inset-right));
+  min-width: 168px;
+  padding: 0.5rem 0.7rem;
+}
+.is-desktop .standings.on {
+  display: block;
+}
+.standings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  max-height: 46vh;
+  overflow: hidden;
+}
+.standing-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--vd-display);
+  font-size: 0.8rem;
+  padding: 0.12rem 0.2rem;
+}
+.standing-row .st-pos {
+  width: 1.5em;
+  text-align: right;
+  font-weight: 700;
+  color: var(--vd-pink);
+}
+.standing-row .st-name {
+  letter-spacing: 0.06em;
+  opacity: 0.82;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.standing-row.you {
+  background: rgba(215, 255, 55, 0.1);
+}
+.standing-row.you .st-pos,
+.standing-row.you .st-name {
+  color: var(--vd-lime);
+  opacity: 1;
+}
+
+/* desktop: bigger speedo + minimap, roomier hero with a ship-stat readout */
+.is-desktop .speed-panel {
+  transform: scale(0.72);
+}
+.is-desktop .minimap {
+  width: 200px;
+  height: 200px;
+}
+.is-desktop .vd-modes {
+  flex: 0 0 40%;
+}
+
+.vd-hero-info {
+  display: none;
+}
+.is-desktop .vd-hero-info {
+  position: absolute;
+  left: 2vh;
+  bottom: 2vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vh;
+  background: rgba(10, 11, 16, 0.6);
+  border: 1px solid rgba(255, 30, 90, 0.25);
+  padding: 1.2vh 1.2vw;
+  clip-path: var(--chamfer);
+  backdrop-filter: blur(3px);
+  pointer-events: none;
+}
+.vd-hi-name {
+  font-family: var(--vd-display);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--vd-lime);
+  font-size: clamp(0.9rem, 2.4vh, 1.3rem);
+}
+.vd-hi-name span {
+  color: #fff;
+}
+.vd-hi-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.6vw;
+  font-family: var(--vd-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  opacity: 0.85;
+}
+.vd-hi-stat > span {
+  width: 2.6em;
+  color: rgba(255, 255, 255, 0.7);
+}
+.vd-hi-stat .vd-seg {
+  width: clamp(90px, 9vw, 150px);
+  gap: 0.4vh;
+}
+.vd-hi-stat .vd-seg > i {
+  height: 1.3vh;
+}
+
+/* ============================================================================
    MAP PICKER (curated tracks)
    ============================================================================ */
 .vd-track-grid {

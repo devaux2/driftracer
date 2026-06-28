@@ -119,8 +119,26 @@ export class Menu {
 
   // ---- main: game modes ----------------------------------------------------
 
+  /** Compact segmented stat bars (shared by garage + desktop hero info). */
+  private miniStats(ship: ShipSpec): string {
+    const seg = (v: number) => {
+      const on = Math.round(v * 8);
+      let o = "";
+      for (let i = 0; i < 8; i++) o += `<i class="${i < on ? "on" : ""}"></i>`;
+      return `<div class="vd-seg">${o}</div>`;
+    };
+    const row = (l: string, v: number) => `<div class="vd-hi-stat"><span>${l}</span>${seg(v)}</div>`;
+    return (
+      row("TRN", ship.cornering) +
+      row("ACC", ship.acceleration) +
+      row("TOP", ship.topSpeed) +
+      row("WGT", ship.weight)
+    );
+  }
+
   private renderMain(): void {
     this.root.className = "vd-menu overlay vd-screen-main";
+    const ship = getShipById(this.selectedShipId);
 
     const modes = MODES.map((m) => {
       const sel = m.id === this.focus;
@@ -166,7 +184,12 @@ export class Menu {
             <div class="vd-modes-bracket"></div>
             ${modes}
           </nav>
-          <div class="vd-hero"></div>
+          <div class="vd-hero">
+            <div class="vd-hero-info">
+              <div class="vd-hi-name">${ship.code} <span>${ship.name}</span></div>
+              ${this.miniStats(ship)}
+            </div>
+          </div>
         </div>
 
         <footer class="vd-botbar">

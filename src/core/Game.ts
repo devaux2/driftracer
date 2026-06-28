@@ -102,6 +102,9 @@ export class Game {
     this.scene.activeCamera = this.camera.camera;
 
     this.input = new InputManager(this.container);
+    // Tag the app by device so the UI can diverge (mobile stays touch-first;
+    // desktop gets a roomier layout + richer HUD).
+    this.container.classList.add(this.input.isTouchDevice ? "is-touch" : "is-desktop");
     this.speedLines = new SpeedLines(this.container);
     this.hud = new HUD(this.container);
     this.hud.show(false);
@@ -431,6 +434,17 @@ export class Game {
     URL.revokeObjectURL(url);
   }
 
+  /** Feed the desktop standings board: every racer ordered by progress. */
+  private updateStandings(): void {
+    if (!this.ship) return;
+    const rows = [
+      { name: "YOU", progress: this.ship.progress, you: true },
+      ...this.bots.map((b) => ({ name: b.name, progress: b.ship.progress, you: false })),
+    ];
+    rows.sort((a, b) => b.progress - a.progress);
+    this.hud.setStandings(rows.map((r, i) => ({ pos: i + 1, name: r.name, you: r.you })));
+  }
+
   /** Race position = 1 + the number of racers further around the track. */
   private playerPosition(): number {
     if (!this.ship) return 1;
@@ -546,7 +560,12 @@ export class Game {
 
     this.camera.update(dt, this.ship, this.track);
     this.hud.update(this.ship);
-    if (this.raceMode === "quick") this.hud.setPosition(this.playerPosition(), RACER_COUNT);
+    if (this.raceMode === "quick") {
+      this.hud.setPosition(this.playerPosition(), RACER_COUNT);
+      this.updateStandings();
+    } else {
+      this.hud.setStandings([]);
+    }
     this.minimap.render(
       this.ship.position,
       this.bots.map((b) => b.ship.position)

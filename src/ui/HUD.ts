@@ -29,6 +29,10 @@ export class HUD {
   private lapEl: HTMLElement;
   private timeEl: HTMLElement;
   private bestEl: HTMLElement;
+  private lastEl: HTMLElement;
+  private standingsEl: HTMLElement;
+  private standingsPanel: HTMLElement;
+  private standingsSig = "";
   private driftEl: HTMLElement;
   private boostEl: HTMLElement;
   private posNumEl: HTMLElement;
@@ -54,7 +58,12 @@ export class HUD {
           <div class="lap-row"><span class="lap-label">LAP</span><span class="lap-num">01</span></div>
           <div class="time-cur">0:00.00</div>
           <div class="time-best">BEST --:--.--</div>
+          <div class="time-last">LAST --:--.--</div>
         </div>
+      </div>
+
+      <div class="hud-panel standings">
+        <div class="panel-skew"><div class="standings-list"></div></div>
       </div>
 
       <div class="hud-panel speed-panel">
@@ -79,6 +88,9 @@ export class HUD {
     this.lapEl = this.root.querySelector(".lap-num")!;
     this.timeEl = this.root.querySelector(".time-cur")!;
     this.bestEl = this.root.querySelector(".time-best")!;
+    this.lastEl = this.root.querySelector(".time-last")!;
+    this.standingsEl = this.root.querySelector(".standings-list")!;
+    this.standingsPanel = this.root.querySelector(".standings")!;
     this.driftEl = this.root.querySelector(".ind.drift")!;
     this.boostEl = this.root.querySelector(".ind.boost")!;
     this.posNumEl = this.root.querySelector(".pos-num")!;
@@ -120,6 +132,26 @@ export class HUD {
     this.posPanel.style.display = visible ? "" : "none";
   }
 
+  /** Desktop standings board. Empty list hides it (e.g. Time Attack). CSS only
+   * shows it on desktop, so mobile is unaffected. */
+  setStandings(rows: { pos: number; name: string; you: boolean }[]): void {
+    if (!rows.length) {
+      this.standingsPanel.classList.remove("on");
+      this.standingsSig = "";
+      return;
+    }
+    this.standingsPanel.classList.add("on"); // CSS only reveals it on desktop
+    const sig = rows.map((r) => `${r.pos}${r.name}`).join("|");
+    if (sig === this.standingsSig) return; // only re-render when the order changes
+    this.standingsSig = sig;
+    this.standingsEl.innerHTML = rows
+      .map(
+        (r) =>
+          `<div class="standing-row ${r.you ? "you" : ""}"><span class="st-pos">${r.pos}</span><span class="st-name">${r.name}</span></div>`
+      )
+      .join("");
+  }
+
   update(ship: Ship): void {
     this.speedEl.textContent = String(ship.speedKph);
     // speedRatio caps at 1.2 (boost headroom); normalise so the bar tops out then.
@@ -128,6 +160,7 @@ export class HUD {
     this.lapEl.textContent = `${lap}/${this.totalLaps}`;
     this.timeEl.innerHTML = digitize(fmtTime(ship.currentLapMs));
     this.bestEl.innerHTML = `BEST ${digitize(fmtTime(ship.bestLapMs))}`;
+    this.lastEl.innerHTML = `LAST ${digitize(fmtTime(ship.lastLapMs))}`;
     this.driftEl.classList.toggle("active", ship.drifting);
     this.boostEl.classList.toggle("active", ship.boostTimer > 0);
   }
