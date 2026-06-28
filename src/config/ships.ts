@@ -63,8 +63,8 @@ export interface ResolvedShipStats {
 }
 
 // Tuning anchors: a stat of 0 maps to MIN, a stat of 1 maps to MAX.
-const SPEED_MIN = 70;
-const SPEED_MAX = 130;
+const SPEED_MIN = 98;
+const SPEED_MAX = 182;
 const THRUST_MIN = 28;
 const THRUST_MAX = 70;
 // Grip (non-drift) turn rate, deliberately low so tight corners require a

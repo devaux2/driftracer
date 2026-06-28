@@ -12,7 +12,7 @@ import type { Track } from "../track/Track";
 const HOVER_HEIGHT = 1.2;
 const GRAVITY = 80;
 const DRIFT_MIN_SPEED = 12;
-const BOOST_PAD_SPEED = 200; // target speed while a boost is active
+const BOOST_PAD_SPEED = 280; // target speed while a boost is active
 const BOOST_DURATION = 1.4;
 const JUMP_VELOCITY = 42; // base launch speed; ramps scale this by their power
 const DRIFT_REWARD_TIME = 1.1; // seconds of drift to earn a mini-boost
