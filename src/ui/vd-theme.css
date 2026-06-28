@@ -1440,10 +1440,11 @@
 .vd-track-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(220px, 40vw), 1fr));
-  gap: 1.4vh 1.2vw;
-  align-content: start;
-  padding: 1vh 0;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 280px));
+  gap: 2vh 1.6vw;
+  align-content: center;
+  justify-content: center;
+  padding: 2vh 0;
   overflow-y: auto;
 }
 .vd-track-card {
