@@ -16,6 +16,7 @@ import { preloadShipModel } from "../ship/shipModel";
 import { ChaseCamera } from "../camera/ChaseCamera";
 import { SpeedLines } from "../effects/SpeedLines";
 import { HUD } from "../ui/HUD";
+import { DesktopHud, type StandingRow } from "../ui/DesktopHud";
 import { Menu } from "../ui/Menu";
 import { Splash } from "../ui/Splash";
 import { Boot } from "../ui/Boot";
@@ -58,7 +59,7 @@ export class Game {
   private input: InputManager;
   private camera: ChaseCamera;
   private speedLines: SpeedLines;
-  private hud: HUD;
+  private hud: HUD | DesktopHud;
   private menu: Menu;
   private boot: Boot | null = null;
   private splash: Splash | null = null;
@@ -113,9 +114,12 @@ export class Game {
     // desktop gets a roomier layout + richer HUD).
     this.container.classList.add(this.input.isTouchDevice ? "is-touch" : "is-desktop");
     this.speedLines = new SpeedLines(this.container);
-    this.hud = new HUD(this.container);
+    // Desktop gets the full FUI dashboard; mobile keeps the touch-first HUD.
+    const desktop = !this.input.isTouchDevice;
+    this.hud = desktop ? new DesktopHud(this.container) : new HUD(this.container);
     this.hud.show(false);
-    this.minimap = new Minimap(this.container, this.track);
+    const minimapParent = desktop ? (this.hud as DesktopHud).minimapMount : this.container;
+    this.minimap = new Minimap(minimapParent, this.track);
     this.minimap.show(false);
     this.results = new Results(this.container);
     this.ghost = new Ghost(this.scene);
@@ -313,6 +317,7 @@ export class Game {
 
     this.menu.show(false);
     this.hud.show(true);
+    this.hud.setTrackInfo(this.track.spec.name, `${(this.track.length / 1000).toFixed(1)} KM`);
     this.minimap.show(!isTime);
     this.input.setTouchControlsVisible(true);
     this.audio.playRace(); // shuffle the aggro/chill pool while racing
@@ -467,15 +472,23 @@ export class Game {
     URL.revokeObjectURL(url);
   }
 
-  /** Feed the desktop standings board: every racer ordered by progress. */
+  /** Feed the standings / nearby board: racers by progress, with metre gaps. */
   private updateStandings(): void {
     if (!this.ship) return;
+    const me = this.ship.progress;
+    const len = this.track.length;
     const rows = [
-      { name: "YOU", progress: this.ship.progress, you: true },
+      { name: "YOU", progress: me, you: true },
       ...this.bots.map((b) => ({ name: b.name, progress: b.ship.progress, you: false })),
     ];
     rows.sort((a, b) => b.progress - a.progress);
-    this.hud.setStandings(rows.map((r, i) => ({ pos: i + 1, name: r.name, you: r.you })));
+    const out: StandingRow[] = rows.map((r, i) => ({
+      pos: i + 1,
+      name: r.name,
+      you: r.you,
+      gap: (me - r.progress) * len,
+    }));
+    this.hud.setStandings(out);
   }
 
   /** Race position = 1 + the number of racers further around the track. */

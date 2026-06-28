@@ -383,4 +383,11 @@ export class Ship {
   get speedRatio(): number {
     return Math.min(1.2, this.speed / this.stats.maxSpeed);
   }
+
+  /** 0..1 boost gauge for the HUD: full while a boost is firing, otherwise the
+   * drift-charge building toward the next reward boost. */
+  get boostMeter(): number {
+    if (this.boostTimer > 0) return 1;
+    return Math.min(1, this.driftCharge / DRIFT_REWARD_TIME);
+  }
 }

@@ -134,7 +134,12 @@ export class HUD {
 
   /** Desktop standings board. Empty list hides it (e.g. Time Attack). CSS only
    * shows it on desktop, so mobile is unaffected. */
-  setStandings(rows: { pos: number; name: string; you: boolean }[]): void {
+  /** No-op on the touch HUD (desktop HUD shows the track card). */
+  setTrackInfo(_name: string, _km: string): void {
+    /* mobile HUD has no track card */
+  }
+
+  setStandings(rows: { pos: number; name: string; you: boolean; gap?: number }[]): void {
     if (!rows.length) {
       this.standingsPanel.classList.remove("on");
       this.standingsSig = "";
