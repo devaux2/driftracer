@@ -1857,3 +1857,52 @@
   .vd-mode { padding: 0.55vh 1.4vh; }
   .vd-mode-jp { display: none; } /* drop the sublabel when there's no room */
 }
+
+/* ============================================================================
+   DESKTOP SPEEDOMETER — forward-lean speed slashes + velocity states
+   (visual system §7: huge number, segmented/slash treatment, state colours)
+   ========================================================================== */
+.dhud-slashes {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  align-self: stretch;
+  margin-left: 0.5vw;
+}
+.dhud-slashes > i {
+  width: clamp(4px, 0.5vw, 7px);
+  height: 38%;
+  transform: skewX(-22deg);
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 0.1s ease, height 0.1s ease;
+}
+.dhud-slashes > i.on { height: 62%; }
+
+.d-speed-row .d-speed { transition: color 0.12s ease; color: var(--vd-white); }
+.d-speed-row.s-accel .d-speed { color: var(--vd-pink); }
+.d-speed-row.s-ready .d-speed { color: var(--vd-lime); }
+.d-speed-row.s-boost .d-speed { color: var(--vd-lime); text-shadow: 0 0 18px rgba(216, 246, 0, 0.55); }
+.d-speed-row.s-over .d-speed { color: var(--vd-orange); text-shadow: 0 0 18px rgba(255, 90, 31, 0.6); }
+
+.d-speed-row.s-idle .dhud-slashes > i.on { background: rgba(255, 255, 255, 0.5); }
+.d-speed-row.s-accel .dhud-slashes > i.on { background: var(--vd-pink); }
+.d-speed-row.s-ready .dhud-slashes > i.on { background: var(--vd-lime); }
+.d-speed-row.s-boost .dhud-slashes > i.on { background: var(--vd-lime); box-shadow: 0 0 6px var(--vd-lime); }
+.d-speed-row.s-over .dhud-slashes > i.on { background: var(--vd-orange); box-shadow: 0 0 6px var(--vd-orange); }
+
+/* VECTOR LOCK microlabel cyan accent (system/anti-grav stabilisation) */
+.dhud-boost-head .d-lock i { color: var(--vd-cyan); }
+
+/* ============================================================================
+   TRACK EDITOR — short-viewport (landscape phone) tightening
+   ========================================================================== */
+@media (max-height: 600px) {
+  .vd-ed-panel { padding: 1.4vh 1.4vw; gap: 0.9vh; flex-basis: clamp(190px, 30vw, 250px); }
+  .vd-ed-title { font-size: clamp(0.95rem, 3vh, 1.2rem); }
+  .vd-ed-tools { gap: 0.5vh; }
+  .vd-ed-tool { padding: 0.7vh 0.4vw; font-size: clamp(0.66rem, 1.7vh, 0.82rem); }
+  .vd-ed-side-wrap { flex-basis: 20%; }
+  .vd-ed-keys { display: none; } /* shortcuts are desktop-only anyway */
+  .vd-ed-actions { gap: 0.6vh; }
+  .vd-ed-actions .start-btn { font-size: clamp(0.82rem, 2.2vh, 1rem); padding: 0.8vh 0; }
+}

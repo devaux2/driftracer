@@ -82,11 +82,12 @@ export class DesktopHud {
       </div>
 
       <div class="dhud-speed">
-        <div class="dhud-boost-head">// MAX BOOST <i>最大ブースト</i></div>
-        <div class="dhud-panel dhud-speed-row">
+        <div class="dhud-boost-head"><span class="d-lock">// VECTOR LOCK <i>速度同期</i></span></div>
+        <div class="dhud-panel dhud-speed-row d-speed-row s-idle">
           <span class="dhud-corner tl"></span><span class="dhud-corner br"></span>
           <span class="dhud-spd-ico">${logoMark()}</span>
           <span class="d-speed">0000</span><span class="dhud-spd-u">KPH<i>速度</i></span>
+          <span class="dhud-slashes d-slashes"><i></i><i></i><i></i><i></i><i></i><i></i></span>
         </div>
         <div class="dhud-boost"><span class="dhud-k">BOOST <i>ブースト</i></span><div class="d-boost-bar"></div></div>
       </div>
@@ -100,6 +101,7 @@ export class DesktopHud {
       "d-pos", "d-pos-tot", "d-lap", "d-lap-tot", "d-time", "d-best", "d-last",
       "d-nearby-list", "d-track", "d-track-km", "d-track-jp", "d-speed",
       "d-boost-bar", "dhud-countdown", "dhud-wrong", "d-now",
+      "d-speed-row", "d-slashes", "d-lock",
     ]) {
       this.el[k] = q(`.${k}`);
     }
@@ -171,6 +173,20 @@ export class DesktopHud {
     const segs = this.el["d-boost-bar"].children;
     for (let i = 0; i < segs.length; i++) segs[i].classList.toggle("on", i < fill);
     this.el["d-boost-bar"].classList.toggle("max", ship.boostMeter >= 1);
+
+    // Speed state → colour the readout + slashes (idle/accel/ready/boost/over).
+    const r = ship.speedRatio; // 0..1.2
+    const boosting = ship.boostTimer > 0;
+    let state: string;
+    if (boosting) state = r > 1.12 ? "over" : "boost";
+    else if (ship.boostMeter >= 0.99) state = "ready";
+    else if (r > 0.6) state = "accel";
+    else state = "idle";
+    this.el["d-speed-row"].className = `dhud-panel dhud-speed-row d-speed-row s-${state}`;
+    // Forward-lean speed slashes extend with speed (and max out under boost).
+    const sl = this.el["d-slashes"].children;
+    const slFill = Math.round(Math.min(1, r / 1.1) * sl.length);
+    for (let i = 0; i < sl.length; i++) sl[i].classList.toggle("on", i < slFill);
   }
 
   setStandings(rows: StandingRow[]): void {

@@ -144,7 +144,11 @@ export class Game {
 
     this.nowPlaying = new NowPlaying(this.container);
     this.audio.onTrack = (t) => {
-      this.nowPlaying.show(t);
+      // Desktop shows the track in the HUD ticker / music screen, so the
+      // slide-in popup is mobile-only (avoids overlapping the desktop ticker,
+      // minimap card and footers). It's also hidden in the editor, where it
+      // would cover the elevation strip.
+      if (this.input.isTouchDevice && this.mode !== "editor") this.nowPlaying.show(t);
       this.hud.setNowPlaying(t.title, t.artist);
     };
     this.pauseMenu = new PauseMenu(this.container, {

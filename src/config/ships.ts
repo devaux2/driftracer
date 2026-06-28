@@ -67,10 +67,11 @@ const SPEED_MIN = 127;
 const SPEED_MAX = 237;
 const THRUST_MIN = 28;
 const THRUST_MAX = 70;
-// Grip (non-drift) turn rate, deliberately low so tight corners require a
-// drift rather than just steering through them.
-const TURN_MIN = 0.8;
-const TURN_MAX = 1.45;
+// Grip (non-drift) turn rate. Bumped +30% for snappier steering — and since
+// drift rotation is proportional to this, the air-brake rotation speeds up by
+// the same +30%.
+const TURN_MIN = 1.04;
+const TURN_MAX = 1.885;
 
 export function resolveShipStats(spec: ShipSpec): ResolvedShipStats {
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
