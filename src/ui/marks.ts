@@ -27,7 +27,37 @@ export const ICONS: Record<string, string> = {
   mp: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 12 H21 M12 3 C7 7 7 17 12 21 C17 17 17 7 12 3" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>`,
   garage: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><path d="M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="miter"/></svg>`,
   editor: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><path d="M4 20 L4 16 L14.5 5.5 L18.5 9.5 L8 20 Z M14.5 5.5 L17 3 L21 7 L18.5 9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
+  track: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><ellipse cx="12" cy="12" rx="9" ry="6" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="5" cy="12" r="1.7" fill="currentColor"/></svg>`,
 };
+
+/** Mini top-down outline of a track's centre-line, for the map picker. */
+export function trackThumb(points: [number, number, number][]): string {
+  const n = points.length;
+  const cr = (a: number, b: number, c: number, d: number, t: number) => {
+    const t2 = t * t, t3 = t2 * t;
+    return 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+  };
+  const pts: { x: number; z: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const p0 = points[(i - 1 + n) % n], p1 = points[i], p2 = points[(i + 1) % n], p3 = points[(i + 2) % n];
+    for (let s = 0; s < 10; s++) {
+      const t = s / 10;
+      pts.push({ x: cr(p0[0], p1[0], p2[0], p3[0], t), z: cr(p0[2], p1[2], p2[2], p3[2], t) });
+    }
+  }
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const p of pts) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+  }
+  const W = 120, H = 80, pad = 8;
+  const sc = Math.min((W - pad * 2) / (maxX - minX || 1), (H - pad * 2) / (maxZ - minZ || 1));
+  const ox = (W - (maxX - minX) * sc) / 2, oy = (H - (maxZ - minZ) * sc) / 2;
+  const coords = pts
+    .map((p) => `${(ox + (p.x - minX) * sc).toFixed(1)},${(H - (oy + (p.z - minZ) * sc)).toFixed(1)}`)
+    .join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" class="vd-track-thumb" aria-hidden="true"><polygon points="${coords}" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>`;
+}
 
 /**
  * Per-ship brand emblems — minimalist geometric monograms (fake-corporate /

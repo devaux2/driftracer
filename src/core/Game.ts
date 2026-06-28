@@ -5,6 +5,7 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { GridMaterial } from "@babylonjs/materials/grid/gridMaterial";
 
 import { InputManager } from "../input/InputManager";
@@ -110,14 +111,16 @@ export class Game {
     this.menu = new Menu(
       this.container,
       this.input.isTouchDevice,
-      (ship, mode, useGyro) => this.startRace(ship, mode === "time" ? "time" : "quick", useGyro),
+      (ship, mode, useGyro, trackId) =>
+        this.startRace(ship, mode === "time" ? "time" : "quick", useGyro, trackId),
       () => this.openEditor()
     );
 
     this.editor = new Editor(
       this.container,
       (spec) => this.testTrack(spec),
-      () => this.exitEditor()
+      () => this.exitEditor(),
+      (spec) => void this.exportTrack(spec)
     );
     this.menu.show(false); // hidden until PLAY is clicked on the title screen
 
@@ -194,7 +197,12 @@ export class Game {
     floor.material = grid;
   }
 
-  private startRace(spec: ShipSpec, raceMode: RaceMode, useGyro: boolean): void {
+  private startRace(spec: ShipSpec, raceMode: RaceMode, useGyro: boolean, trackId?: string): void {
+    // Switch to the chosen approved track if it isn't already active.
+    if (trackId && this.track.spec.id !== trackId) {
+      this.loadTrackSpec(getTrackById(trackId));
+    }
+
     if (this.ship) this.ship.root.dispose();
     for (const b of this.bots) b.dispose();
     this.bots = [];
@@ -334,6 +342,31 @@ export class Game {
     this.editor.close();
     this.loadTrackSpec(spec);
     this.startRace(this.lastSpec, "time", this.lastUseGyro);
+  }
+
+  /** Export the edited track as a Wavefront .OBJ mesh (road + rails + pads) for
+   * building out in C4D / Blender etc. Built in a throwaway scene so nothing
+   * else is included. OBJ is used over glTF for the widest DCC compatibility. */
+  private async exportTrack(spec: TrackSpec): Promise<void> {
+    const tmp = new Scene(this.engine);
+    const track = new Track(tmp, spec);
+    try {
+      const { OBJExport } = await import("@babylonjs/serializers/OBJ");
+      const meshes = tmp.meshes.filter((m): m is Mesh => m instanceof Mesh && m.getTotalVertices() > 0);
+      const obj = OBJExport.OBJ(meshes, false, undefined, true);
+      const blob = new Blob([obj], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `vector-drift-${spec.id || "track"}.obj`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.warn("track export failed", e);
+    } finally {
+      track.dispose();
+      tmp.dispose();
+    }
   }
 
   /** Race position = 1 + the number of racers further around the track. */

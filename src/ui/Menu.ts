@@ -1,8 +1,9 @@
 import { SHIPS, getShipById, type ShipSpec } from "../config/ships";
-import { logoMark, ICONS, shipIcon } from "./marks";
+import { TRACKS } from "../config/tracks";
+import { logoMark, ICONS, shipIcon, trackThumb } from "./marks";
 import { ShipPreview } from "./ShipPreview";
 
-type Screen = "main" | "garage";
+type Screen = "main" | "garage" | "tracks";
 
 interface GameMode {
   id: string;
@@ -16,6 +17,7 @@ interface GameMode {
 const MODES: GameMode[] = [
   { id: "quick", name: "QUICK RACE", jp: "クイックレース", icon: ICONS.quick, playable: true },
   { id: "time", name: "TIME ATTACK", jp: "タイムアタック", icon: ICONS.time, playable: true },
+  { id: "tracks", name: "SELECT TRACK", jp: "コース選択", icon: ICONS.track, playable: true },
   { id: "gp", name: "GRAND PRIX", jp: "グランプリ", icon: ICONS.gp, playable: false },
   { id: "mp", name: "MULTIPLAYER", jp: "マルチプレイヤー", icon: ICONS.mp, playable: false },
   { id: "garage", name: "GARAGE", jp: "ガレージ", icon: ICONS.garage, playable: true },
@@ -43,6 +45,7 @@ export class Menu {
 
   private screen: Screen = "main";
   private selectedShipId = SHIPS[0].id;
+  private selectedTrackId = TRACKS[0].id;
   /** Currently focused main-menu row (keyboard/gamepad cursor). */
   private focus = "quick";
   private useGyro = false;
@@ -50,7 +53,7 @@ export class Menu {
   constructor(
     container: HTMLElement,
     private isTouchDevice: boolean,
-    private onStart: (ship: ShipSpec, mode: string, useGyro: boolean) => void,
+    private onStart: (ship: ShipSpec, mode: string, useGyro: boolean, trackId: string) => void,
     private onEditor: () => void
   ) {
     this.root = document.createElement("div");
@@ -76,16 +79,22 @@ export class Menu {
 
   private render(): void {
     if (this.screen === "main") this.renderMain();
-    else this.renderGarage();
+    else if (this.screen === "garage") this.renderGarage();
+    else this.renderTracks();
     this.preview.setShip(getShipById(this.selectedShipId));
     this.preview.setRing(this.screen === "garage");
     this.positionPreview();
   }
 
+  private trackName(id: string): string {
+    return TRACKS.find((t) => t.id === id)?.name ?? "—";
+  }
+
   /** Overlay the preview canvas exactly on the current screen's hero element. */
   private positionPreview(): void {
-    const sel = this.screen === "main" ? ".vd-hero" : ".vd-garage-hero";
-    const hero = this.content.querySelector(sel) as HTMLElement | null;
+    const sel =
+      this.screen === "main" ? ".vd-hero" : this.screen === "garage" ? ".vd-garage-hero" : null;
+    const hero = sel ? (this.content.querySelector(sel) as HTMLElement | null) : null;
     if (!hero || this.root.style.display === "none") {
       this.canvas.style.display = "none";
       return;
@@ -115,12 +124,13 @@ export class Menu {
 
     const modes = MODES.map((m) => {
       const sel = m.id === this.focus;
+      const sub = m.id === "tracks" ? `${m.jp} · ${this.trackName(this.selectedTrackId)}` : m.jp;
       return `
       <button class="vd-mode ${sel ? "sel" : ""} ${m.playable ? "" : "soon"}" data-mode="${m.id}">
         <span class="vd-ic">${m.icon}</span>
         <span>
           <span class="vd-mode-name">${m.name}</span>
-          <span class="vd-mode-jp">${m.jp}</span>
+          <span class="vd-mode-jp">${sub}</span>
         </span>
         ${m.playable ? "" : `<span class="soon-tag">SOON</span>`}
       </button>`;
@@ -202,8 +212,14 @@ export class Menu {
       this.onEditor();
       return;
     }
+    if (id === "tracks") {
+      this.goto("tracks");
+      return;
+    }
     const mode = MODES.find((m) => m.id === id);
-    if (mode?.playable) this.onStart(getShipById(this.selectedShipId), id, this.useGyro);
+    if (mode?.playable) {
+      this.onStart(getShipById(this.selectedShipId), id, this.useGyro, this.selectedTrackId);
+    }
   }
 
   /** Move the main-menu cursor by `dir` (-1 up / +1 down), wrapping. */
@@ -220,9 +236,13 @@ export class Menu {
       if (nav.up) this.moveFocus(-1);
       if (nav.down) this.moveFocus(1);
       if (nav.confirm) this.activate(this.focus);
-    } else {
+    } else if (this.screen === "garage") {
       if (nav.left) this.cycle(-1);
       if (nav.right) this.cycle(1);
+      if (nav.confirm || nav.back) this.goto("main");
+    } else {
+      if (nav.left) this.cycleTrack(-1);
+      if (nav.right) this.cycleTrack(1);
       if (nav.confirm || nav.back) this.goto("main");
     }
   }
@@ -324,6 +344,57 @@ export class Menu {
     const idx = SHIPS.findIndex((s) => s.id === this.selectedShipId);
     const next = (idx + dir + SHIPS.length) % SHIPS.length;
     this.selectedShipId = SHIPS[next].id;
+    this.render();
+  }
+
+  // ---- tracks: curated map picker (approved tracks only) -------------------
+
+  private renderTracks(): void {
+    this.root.className = "vd-menu overlay vd-screen-tracks";
+
+    const cards = TRACKS.map(
+      (t) => `
+      <button class="vd-track-card ${t.id === this.selectedTrackId ? "sel" : ""}" data-id="${t.id}">
+        ${trackThumb(t.points)}
+        <span class="vd-track-name">${t.name}</span>
+      </button>`
+    ).join("");
+
+    this.content.innerHTML = `
+      <div class="vd-shell">
+        ${this.plusMarks()}
+        <header class="vd-topbar">
+          <div class="vd-brand vd-brand--garage">
+            <span class="vd-badge">${logoMark()}</span>
+            <span>
+              <span class="vd-brand-name">SELECT TRACK</span>
+              <span class="vd-brand-jp">コース選択</span>
+            </span>
+          </div>
+        </header>
+
+        <div class="vd-track-grid">${cards}</div>
+
+        <footer class="vd-botbar">
+          <button class="vd-act back-act"><span class="ring">✕</span> BACK</button>
+          <button class="vd-act select-act">SELECT <span class="ring">✕</span></button>
+        </footer>
+      </div>`;
+
+    this.content.querySelectorAll<HTMLButtonElement>(".vd-track-card").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.selectedTrackId = btn.dataset.id!;
+        this.goto("main");
+      });
+    });
+    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
+    this.content.querySelector<HTMLButtonElement>(".select-act")!.addEventListener("click", () => this.goto("main"));
+  }
+
+  private cycleTrack(dir: number): void {
+    const idx = TRACKS.findIndex((t) => t.id === this.selectedTrackId);
+    const next = (idx + dir + TRACKS.length) % TRACKS.length;
+    this.selectedTrackId = TRACKS[next].id;
     this.render();
   }
 

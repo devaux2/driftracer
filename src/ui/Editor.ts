@@ -37,7 +37,8 @@ export class Editor {
   constructor(
     container: HTMLElement,
     private onTest: (spec: TrackSpec) => void,
-    private onExit: () => void
+    private onExit: () => void,
+    private onExport: (spec: TrackSpec) => void
   ) {
     this.root = document.createElement("div");
     this.root.className = "vd-editor overlay";
@@ -491,6 +492,7 @@ export class Editor {
           <button class="vd-ed-load">LOAD</button>
           <button class="vd-ed-reset">RESET</button>
         </div>
+        <button class="vd-ed-export">⬇ EXPORT .OBJ</button>
         <button class="vd-ed-back back-btn">‹ BACK TO MENU</button>
       </div>`;
 
@@ -536,6 +538,10 @@ export class Editor {
       this.sel = null;
       this.renderPanel();
       this.draw();
+    });
+    this.panel.querySelector(".vd-ed-export")!.addEventListener("click", () => {
+      this.onExport(cloneSpec(this.spec));
+      this.flash(".vd-ed-export", "EXPORTED");
     });
     this.panel.querySelector(".vd-ed-back")!.addEventListener("click", () => this.onExit());
   }

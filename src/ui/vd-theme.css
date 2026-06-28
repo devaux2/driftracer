@@ -908,6 +908,50 @@
 }
 
 /* ============================================================================
+   MAP PICKER (curated tracks)
+   ============================================================================ */
+.vd-track-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 40vw), 1fr));
+  gap: 1.4vh 1.2vw;
+  align-content: start;
+  padding: 1vh 0;
+  overflow-y: auto;
+}
+.vd-track-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(120, 200, 255, 0.85);
+  cursor: pointer;
+  padding: 1.2vh 1vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8vh;
+}
+.vd-track-card .vd-track-thumb {
+  width: 100%;
+  height: auto;
+  max-height: 16vh;
+}
+.vd-track-name {
+  font-family: var(--vd-display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+  font-size: clamp(0.8rem, 2vh, 1.1rem);
+}
+.vd-track-card.sel {
+  border-color: var(--vd-lime);
+  color: var(--vd-lime);
+  box-shadow: 0 0 22px rgba(215, 255, 55, 0.3);
+}
+.vd-track-card.sel .vd-track-name {
+  color: var(--vd-lime);
+}
+
+/* ============================================================================
    TRACK EDITOR
    ============================================================================ */
 .vd-editor {
@@ -1072,6 +1116,16 @@
   padding: 0.7vh 0;
   cursor: pointer;
   font-size: clamp(0.62rem, 1.5vh, 0.8rem);
+}
+.vd-ed-export {
+  background: rgba(215, 255, 55, 0.12);
+  border: 1px solid var(--vd-lime);
+  color: var(--vd-lime);
+  font-family: var(--vd-display);
+  letter-spacing: 0.1em;
+  padding: 0.8vh 0;
+  cursor: pointer;
+  font-size: clamp(0.7rem, 1.7vh, 0.95rem);
 }
 .vd-ed-back {
   background: none;
