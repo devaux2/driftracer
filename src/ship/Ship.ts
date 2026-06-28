@@ -5,6 +5,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import type { Scene } from "@babylonjs/core/scene";
 import { resolveShipStats, type ResolvedShipStats, type ShipSpec } from "../config/ships";
+import { buildShipModel } from "./shipModel";
 import type { ControlState } from "../input/types";
 import type { Track } from "../track/Track";
 
@@ -91,6 +92,18 @@ export class Ship {
   }
 
   private buildModel(scene: Scene, spec: ShipSpec): TransformNode {
+    // Preferred: the shared GLB craft, hue-rotated for this ship. Falls back to
+    // the simple box hull if the model isn't loaded yet.
+    const model = buildShipModel(scene, spec.color, spec.tintStrength, 4.6);
+    if (model) {
+      const mroot = new TransformNode(`ship-${spec.id}`, scene);
+      model.parent = mroot;
+      model.rotation.y = Math.PI; // orient nose to +Z (travel direction)
+      // GLB carries its own engine glow; give the boost-glow hook a no-op target.
+      this.glowMat = { emissiveColor: new Color3() };
+      return mroot;
+    }
+
     const root = new TransformNode(`ship-${spec.id}`, scene);
 
     const body = MeshBuilder.CreateBox("hull", { width: 2.2, height: 0.7, depth: 4.2 }, scene);
@@ -125,7 +138,7 @@ export class Ship {
     return root;
   }
 
-  private glowMat!: StandardMaterial;
+  private glowMat!: { emissiveColor: Color3 };
 
   placeAtStart(position: Vector3, forward: Vector3): void {
     this.position.copyFrom(position);

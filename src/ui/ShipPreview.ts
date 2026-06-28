@@ -9,6 +9,7 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
+import { preloadShipModel, buildShipModel, shipModelReady } from "../ship/shipModel";
 import type { ShipSpec } from "../config/ships";
 
 /**
@@ -24,6 +25,7 @@ export class ShipPreview {
   private hull: TransformNode | null = null;
   private ring: Mesh;
   private active = false;
+  private lastSpec: ShipSpec | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.engine = new Engine(canvas, true, { alpha: true, antialias: true, premultipliedAlpha: false });
@@ -49,6 +51,11 @@ export class ShipPreview {
     this.ring.material = ringMat;
     this.ring.setEnabled(false);
 
+    // Load the shared GLB into this scene; rebuild the current ship once ready.
+    void preloadShipModel(this.scene).then(() => {
+      if (this.lastSpec) this.setShip(this.lastSpec);
+    });
+
     this.engine.runRenderLoop(() => {
       if (!this.active) return;
       if (this.hull) this.hull.rotation.y += 0.006;
@@ -56,11 +63,22 @@ export class ShipPreview {
     });
   }
 
-  /** Build (or rebuild) the hull in the given ship's accent colour. */
+  /** Build (or rebuild) the craft for the given ship (hue-rotated GLB, or a
+   * simple box hull until the model has loaded). */
   setShip(spec: ShipSpec): void {
+    this.lastSpec = spec;
     this.hull?.dispose(false, true);
-    const root = new TransformNode(`preview-${spec.id}`, this.scene);
 
+    if (shipModelReady(this.scene)) {
+      const model = buildShipModel(this.scene, spec.color, spec.tintStrength, 7);
+      if (model) {
+        model.rotation.y = Math.PI + 0.5; // 3/4 hero angle
+        this.hull = model;
+        return;
+      }
+    }
+
+    const root = new TransformNode(`preview-${spec.id}`, this.scene);
     const body = MeshBuilder.CreateBox("hull", { width: 2.2, height: 0.7, depth: 4.2 }, this.scene);
     const nose = MeshBuilder.CreateCylinder(
       "nose",

@@ -23,8 +23,11 @@ export interface ShipSpec {
   jp: string;
   /** Short flavour line shown in the select screen. */
   blurb: string;
-  /** Hull accent colour. */
+  /** Hull accent colour (UI: emblem, HUD, model tint). */
   color: Color3;
+  /** How strongly to tint the shared craft model toward `color` (0..1). VD-01
+   * is 0 — the model's native look; others recolour to read as distinct cars. */
+  tintStrength: number;
 
   /** 0..1 — how fast it reaches top speed. */
   acceleration: number;
@@ -108,6 +111,7 @@ export const SHIPS: ShipSpec[] = [
     topSpeed: 0.68,
     cornering: 0.72,
     weight: 0.35,
+    tintStrength: 0,
   },
   {
     id: "vd-02",
@@ -120,6 +124,7 @@ export const SHIPS: ShipSpec[] = [
     topSpeed: 0.45,
     cornering: 0.9,
     weight: 0.25,
+    tintStrength: 0.85,
   },
   {
     id: "vd-03",
@@ -132,6 +137,7 @@ export const SHIPS: ShipSpec[] = [
     topSpeed: 0.6,
     cornering: 0.55,
     weight: 0.5,
+    tintStrength: 0.85,
   },
   {
     id: "vd-04",
@@ -144,6 +150,7 @@ export const SHIPS: ShipSpec[] = [
     topSpeed: 0.72,
     cornering: 0.6,
     weight: 0.72,
+    tintStrength: 0.85,
   },
   {
     id: "vd-05",
@@ -156,6 +163,7 @@ export const SHIPS: ShipSpec[] = [
     topSpeed: 0.98,
     cornering: 0.35,
     weight: 0.9,
+    tintStrength: 0.85,
   },
 ];
 

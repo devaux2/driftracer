@@ -15,6 +15,8 @@ export default defineConfig({
   // Relative base so the build works under any path (e.g. GitHub Pages'
   // https://<user>.github.io/driftracer/) without hardcoding the repo name.
   base: "./",
+  // 3D models are bundled as static assets (imported for their URL).
+  assetsInclude: ["**/*.glb"],
   define: {
     __BUILD_ID__: JSON.stringify(buildId),
   },

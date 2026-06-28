@@ -10,6 +10,7 @@ import { GridMaterial } from "@babylonjs/materials/grid/gridMaterial";
 import { InputManager } from "../input/InputManager";
 import { Track } from "../track/Track";
 import { Ship } from "../ship/Ship";
+import { preloadShipModel } from "../ship/shipModel";
 import { ChaseCamera } from "../camera/ChaseCamera";
 import { SpeedLines } from "../effects/SpeedLines";
 import { HUD } from "../ui/HUD";
@@ -87,6 +88,7 @@ export class Game {
     this.scene.clearColor = new Color4(0.02, 0.02, 0.06, 1);
 
     this.setupEnvironment();
+    void preloadShipModel(this.scene); // warm the GLB so race ships use it
     this.track = new Track(this.scene, getTrackById("neon-circuit"));
 
     this.camera = new ChaseCamera(this.scene);
