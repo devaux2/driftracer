@@ -17,14 +17,14 @@ export class AudioManager {
   private ready = false; // first track has started
   private deferred = false; // first load scheduled
 
-  musicVolume = 0.6;
+  musicVolume = 0.7;
   sfxVolume = 0.7;
 
   /** Called when a new track begins playing. */
   onTrack: ((t: MusicTrack) => void) | null = null;
 
   constructor() {
-    this.musicVolume = this.load("driftracer.vol.music", 0.6);
+    this.musicVolume = this.load("driftracer.vol.music", 0.7);
     this.sfxVolume = this.load("driftracer.vol.sfx", 0.7);
     this.music.volume = this.musicVolume;
     // Never prefetch audio — tracks load one at a time, only when played, so the
