@@ -75,6 +75,7 @@ export class Game {
   private goFlashT = 0;
   private raceTimeMs = 0;
   private prevLap = 0;
+  private wrongWayT = 0;
 
   // ghost recording (time attack)
   private ghostBuffer: GhostFrame[] = [];
@@ -312,6 +313,7 @@ export class Game {
     this.mode = "menu";
     this.hud.show(false);
     this.hud.setCountdown(null);
+    this.hud.setWrongWay(false);
     this.minimap.show(false);
     this.results.hide();
     this.ghost.hide();
@@ -495,6 +497,20 @@ export class Game {
     this.speedLines.render(dt, 0, 0);
   }
 
+  /** Flash WRONG WAY when the player's actual motion opposes track travel. */
+  private updateWrongWay(dt: number): void {
+    if (!this.ship) return;
+    const fwd = this.track.locate(this.ship.position).forward;
+    const v = this.ship.velocity;
+    const speed = Math.hypot(v.x, v.z);
+    if (speed > 8 && (v.x * fwd.x + v.z * fwd.z) / speed < -0.35) {
+      this.wrongWayT += dt;
+    } else {
+      this.wrongWayT = 0;
+    }
+    this.hud.setWrongWay(this.wrongWayT > 0.5);
+  }
+
   private tickRunning(dt: number, ctrl: ReturnType<InputManager["update"]>): void {
     if (!this.ship) return;
 
@@ -525,6 +541,8 @@ export class Game {
       }
       this.ghost.update(this.ship.currentLapMs);
     }
+
+    this.updateWrongWay(dt);
 
     this.camera.update(dt, this.ship, this.track);
     this.hud.update(this.ship);
@@ -564,6 +582,8 @@ export class Game {
     if (!this.ship) return;
     this.phase = "finished";
     this.hud.setCountdown(null);
+    this.hud.setWrongWay(false);
+    this.wrongWayT = 0;
     this.input.setTouchControlsVisible(false);
 
     const onRetry = () => this.startRace(this.lastSpec, this.raceMode, this.lastUseGyro);

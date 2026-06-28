@@ -868,6 +868,34 @@
   color: #0a0a0c;
 }
 
+/* WRONG WAY warning */
+.wrong-way {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  z-index: 13;
+  pointer-events: none;
+  font-family: var(--vd-display);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.12em;
+  font-size: clamp(2rem, 7vh, 4.5rem);
+  color: #ff2a2a;
+  text-shadow: 0 0 18px rgba(255, 0, 0, 0.9), 0 0 48px rgba(255, 0, 0, 0.6);
+  white-space: nowrap;
+}
+.wrong-way.show {
+  display: block;
+  animation: wrong-flash 0.5s steps(1) infinite;
+}
+@keyframes wrong-flash {
+  50% {
+    opacity: 0.15;
+  }
+}
+
 .countdown {
   text-shadow: 0 0 24px var(--vd-pink), 0 0 64px var(--vd-pink), 0 0 130px rgba(215, 255, 55, 0.5);
 }
@@ -1071,6 +1099,12 @@
   font-size: clamp(0.66rem, 1.6vh, 0.85rem);
   opacity: 0.55;
   line-height: 1.4;
+}
+.vd-ed-keys {
+  font-size: clamp(0.58rem, 1.4vh, 0.78rem);
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+  line-height: 1.5;
 }
 .vd-ed-del {
   background: none;

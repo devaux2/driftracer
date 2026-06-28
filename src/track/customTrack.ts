@@ -1,4 +1,4 @@
-import { getTrackById, type TrackSpec } from "../config/tracks";
+import type { TrackSpec } from "../config/tracks";
 
 /** Persistent storage for a player-authored track (the editor's output). */
 const KEY = "driftracer.customtrack";
@@ -14,12 +14,21 @@ export function cloneSpec(spec: TrackSpec): TrackSpec {
   };
 }
 
-/** The starting point for a new custom track: a copy of the built-in circuit. */
+/** The starting point for a new custom track: a dead-simple 4-point oval with
+ * no pads — an easy canvas to explore from. */
 export function baseSpec(): TrackSpec {
-  const base = cloneSpec(getTrackById("neon-circuit"));
-  base.id = "custom";
-  base.name = "CUSTOM TRACK";
-  return base;
+  return {
+    id: "custom",
+    name: "CUSTOM TRACK",
+    roadHalfWidth: 44,
+    points: [
+      [0, 0, -520],
+      [360, 0, 0],
+      [0, 0, 520],
+      [-360, 0, 0],
+    ],
+    pads: [],
+  };
 }
 
 export function loadCustomTrack(): TrackSpec | null {

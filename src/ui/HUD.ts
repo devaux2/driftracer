@@ -36,6 +36,7 @@ export class HUD {
   private posPanel: HTMLElement;
   private countdownEl: HTMLElement;
   private countdownText: string | null = null;
+  private wrongEl: HTMLElement;
   private totalLaps = 3;
 
   constructor(container: HTMLElement) {
@@ -69,7 +70,8 @@ export class HUD {
         </div>
       </div>
 
-      <div class="countdown"></div>`;
+      <div class="countdown"></div>
+      <div class="wrong-way">▲ WRONG WAY ▲</div>`;
     container.appendChild(this.root);
 
     this.speedEl = this.root.querySelector(".kph")!;
@@ -83,6 +85,12 @@ export class HUD {
     this.posTotalEl = this.root.querySelector(".pos-total")!;
     this.posPanel = this.root.querySelector(".pos-panel")!;
     this.countdownEl = this.root.querySelector(".countdown")!;
+    this.wrongEl = this.root.querySelector(".wrong-way")!;
+  }
+
+  /** Flash the big red WRONG WAY warning (driving the course backwards). */
+  setWrongWay(on: boolean): void {
+    this.wrongEl.classList.toggle("show", on);
   }
 
   setTotalLaps(n: number): void {

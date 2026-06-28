@@ -78,6 +78,7 @@ export class Editor {
     window.addEventListener("resize", () => {
       if (this.root.style.display !== "none") this.resize();
     });
+    window.addEventListener("keydown", (e) => this.onKey(e));
   }
 
   // ---- lifecycle -----------------------------------------------------------
@@ -221,12 +222,42 @@ export class Editor {
     ctx.lineWidth = 1.5;
     this.strokeClosed(loop);
 
-    // pads — drawn at their actual spot on the road (t + lateral offset)
+    // pads — drawn at their actual spot on the road (t + lateral offset), with a
+    // direction arrow pointing the way they shoot you (along track travel).
+    const np = wl.length;
     this.spec.pads.forEach((pad, i) => {
       const wp = this.padPos(pad, wl);
       const at = this.toScreen(wp.x, wp.z);
       const selected = this.sel?.type === "pad" && this.sel.index === i;
-      ctx.fillStyle = pad.kind === "boost" ? "#ffcf3d" : "#3dff84";
+      const color = pad.kind === "boost" ? "#ffcf3d" : "#3dff84";
+
+      // shoot direction = track forward at this pad (screen space)
+      const idx = Math.floor(pad.t * np) % np;
+      const sa = this.toScreen(wl[(idx - 1 + np) % np].x, wl[(idx - 1 + np) % np].z);
+      const sb = this.toScreen(wl[(idx + 1) % np].x, wl[(idx + 1) % np].z);
+      let dx = sb.x - sa.x, dy = sb.z - sa.z;
+      const L = Math.hypot(dx, dy) || 1;
+      dx /= L; dy /= L;
+      const len = selected ? 30 : 24;
+      const tx = at.x + dx * len, ty = at.z + dy * len;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = selected ? 3 : 2;
+      ctx.beginPath();
+      ctx.moveTo(at.x, at.z);
+      ctx.lineTo(tx, ty);
+      ctx.stroke();
+      const ang = Math.atan2(dy, dx);
+      const ah = selected ? 9 : 7;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx - ah * Math.cos(ang - 0.5), ty - ah * Math.sin(ang - 0.5));
+      ctx.lineTo(tx - ah * Math.cos(ang + 0.5), ty - ah * Math.sin(ang + 0.5));
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      // pad dot
+      ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(at.x, at.z, selected ? 9 : 6, 0, Math.PI * 2);
       ctx.fill();
@@ -531,6 +562,7 @@ export class Editor {
         ${toolBtn("jump", "▲ Jump")}
       </div>
       <label class="vd-ed-width">ROAD WIDTH <input type="range" id="ed-w" min="20" max="120" step="2" value="${this.spec.roadHalfWidth}"><b id="ed-wv">${this.spec.roadHalfWidth}</b></label>
+      <p class="vd-ed-keys">P add point · B boost · J jump · V select · Del remove</p>
       ${selHtml}
       <div class="vd-ed-actions">
         <button class="vd-ed-test start-btn">▶ TEST DRIVE</button>
@@ -595,6 +627,25 @@ export class Editor {
     });
     this.panel.querySelector(".vd-ed-import")!.addEventListener("click", () => this.fileInput.click());
     this.panel.querySelector(".vd-ed-back")!.addEventListener("click", () => this.onExit());
+  }
+
+  /** Editor keyboard shortcuts (only while the editor is open). */
+  private onKey(e: KeyboardEvent): void {
+    if (this.root.style.display === "none") return;
+    const k = e.key.toLowerCase();
+    if (k === "delete" || k === "backspace") {
+      e.preventDefault();
+      this.deleteSelected();
+      return;
+    }
+    const tools: Record<string, Tool> = { p: "point", b: "boost", j: "jump", v: "select", escape: "select" };
+    const t = tools[k];
+    if (t) {
+      this.tool = t;
+      if (t !== "select") this.sel = null;
+      this.renderPanel();
+      this.draw();
+    }
   }
 
   private async handleImport(): Promise<void> {
