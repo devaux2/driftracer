@@ -9,7 +9,7 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Track } from "../track/Track";
-import type { TrackSpec } from "../config/tracks";
+import type { ControlPoint, TrackSpec } from "../config/tracks";
 
 /**
  * Live orbitable 3D preview of the track being edited. Builds the real
@@ -95,7 +95,7 @@ export class EditorPreview3D {
   }
 
   /** Highlight the selected control point (or hide the marker). */
-  setSelection(point: [number, number, number, number?] | null): void {
+  setSelection(point: ControlPoint | null): void {
     if (!point) {
       this.marker.setEnabled(false);
       return;

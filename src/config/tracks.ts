@@ -24,11 +24,12 @@ export interface PadSpec {
 }
 
 /** A control point. X/Z position, **Y elevation** (the road follows Y, so
- * raising/lowering Y between points gives hills, dips, drops and crests), plus
- * an optional **bank** angle in degrees (roll about the direction of travel, so
- * a section tilts into a turn — positive banks the right edge up). The editor
- * edits exactly this; omit bank for a flat section. */
-export type ControlPoint = [x: number, y: number, z: number, bank?: number];
+ * raising/lowering Y between points gives hills, dips, drops and crests),
+ * optional **bank** angle in degrees (roll about the direction of travel, so a
+ * section tilts into a turn — positive banks the right edge up), and an optional
+ * **half-width** override in world units (the road widens/narrows toward it;
+ * omit to use the track's base width). The editor edits exactly this. */
+export type ControlPoint = [x: number, y: number, z: number, bank?: number, halfWidth?: number];
 
 export interface TrackSpec {
   id: string;

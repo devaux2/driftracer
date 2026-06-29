@@ -254,7 +254,7 @@ export class Ship {
 
     // --- vertical (jumps / gravity / verticality) ---
     const sample = track.locate(this.position);
-    const overRoad = Math.abs(sample.lateral) <= track.halfWidth + 1;
+    const overRoad = Math.abs(sample.lateral) <= sample.halfWidth + 1;
     const groundY = sample.height + HOVER_HEIGHT;
     if (this.airborne) {
       this.verticalVel -= GRAVITY * dt;
@@ -291,7 +291,7 @@ export class Ship {
 
     // --- soft walls: only bite when grounded, so jumps can fly off-track ---
     if (!this.airborne) {
-      const limit = track.halfWidth - 1.5;
+      const limit = sample.halfWidth - 1.5;
       if (Math.abs(sample.lateral) > limit) {
         const over = Math.abs(sample.lateral) - limit;
         const inward = -Math.sign(sample.lateral);

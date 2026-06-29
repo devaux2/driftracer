@@ -709,6 +709,7 @@ export class Editor {
           <div class="vd-ed-coords">X ${Math.round(p[0])} · Z ${Math.round(p[2])} · arrows to nudge</div>
           <label>HEIGHT <input type="range" id="ed-h" min="-160" max="160" step="2" value="${p[1]}"><b id="ed-hv">${p[1]}</b></label>
           <label>TILT <input type="range" id="ed-b" min="-45" max="45" step="1" value="${p[3] ?? 0}"><b id="ed-bv">${p[3] ?? 0}°</b></label>
+          <label>WIDTH <input type="range" id="ed-pw" min="20" max="140" step="2" value="${p[4] ?? this.spec.roadHalfWidth}"><b id="ed-pwv">${p[4] ?? this.spec.roadHalfWidth}</b></label>
           <div class="vd-ed-row2">
             <button class="vd-ed-dup">⧉ DUPLICATE</button>
             <button class="vd-ed-del">DELETE</button>
@@ -783,6 +784,16 @@ export class Editor {
     if (this.sel?.type === "point") {
       wire("#ed-h", "#ed-hv", (v) => (this.spec.points[this.sel!.index][1] = v), (v) => String(v));
       wire("#ed-b", "#ed-bv", (v) => (this.spec.points[this.sel!.index][3] = v), (v) => `${v}°`);
+      wire(
+        "#ed-pw",
+        "#ed-pwv",
+        (v) => {
+          const pt = this.spec.points[this.sel!.index];
+          if (pt[3] === undefined) pt[3] = 0; // keep the tuple dense
+          pt[4] = v;
+        },
+        (v) => String(v)
+      );
     }
     if (this.sel?.type === "pad") {
       wire("#ed-o", "#ed-ov", (v) => (this.spec.pads[this.sel!.index].offset = v), (v) => v.toFixed(2));

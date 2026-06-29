@@ -9,7 +9,12 @@ export function cloneSpec(spec: TrackSpec): TrackSpec {
     id: spec.id,
     name: spec.name,
     roadHalfWidth: spec.roadHalfWidth,
-    points: spec.points.map((p) => (p[3] ? [p[0], p[1], p[2], p[3]] : [p[0], p[1], p[2]]) as ControlPoint),
+    points: spec.points.map((p) => {
+      const c: number[] = [p[0], p[1], p[2]];
+      if (p[3] !== undefined || p[4] !== undefined) c[3] = p[3] ?? 0;
+      if (p[4] !== undefined) c[4] = p[4];
+      return c as ControlPoint;
+    }),
     pads: spec.pads.map((p) => ({ kind: p.kind, t: p.t, offset: p.offset, power: p.power })),
   };
 }

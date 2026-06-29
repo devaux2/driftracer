@@ -21,6 +21,8 @@ export interface TrackSample {
   forward: Vector3;
   /** Centre-line point at this location. */
   center: Vector3;
+  /** Local road half-width here (sections can widen/narrow). */
+  halfWidth: number;
 }
 
 export interface Pad {
@@ -46,6 +48,8 @@ export class Track {
   private rights: Vector3[] = [];
   /** Per-sample bank (roll) in radians, interpolated from the control points. */
   private banks: number[] = [];
+  /** Per-sample road half-width, interpolated from the control points. */
+  private halfWidths: number[] = [];
   private cumLen: number[] = [];
   private totalLen = 0;
 
@@ -94,12 +98,14 @@ export class Track {
     // a smoothstep so tilt eases in/out instead of snapping at control points.
     const nseg = spec.points.length;
     const segBank = (idx: number) => ((spec.points[idx % nseg][3] ?? 0) * Math.PI) / 180;
+    const segWidth = (idx: number) => spec.points[idx % nseg][4] ?? this.halfWidth;
     for (let i = 0; i < n; i++) {
       const f = (i / n) * nseg;
       const seg = Math.floor(f) % nseg;
       const frac = f - Math.floor(f);
       const s = frac * frac * (3 - 2 * frac);
       this.banks.push(segBank(seg) + (segBank(seg + 1) - segBank(seg)) * s);
+      this.halfWidths.push(segWidth(seg) + (segWidth(seg + 1) - segWidth(seg)) * s);
     }
 
     this.cumLen = [0];
@@ -127,8 +133,9 @@ export class Track {
     for (let i = 0; i <= n; i++) {
       const c = this.centers[i % n];
       const rr = this.rolledRight(i % n);
-      left.push(c.add(rr.scale(-this.halfWidth)).add(new Vector3(0, 0.02, 0)));
-      right.push(c.add(rr.scale(this.halfWidth)).add(new Vector3(0, 0.02, 0)));
+      const hw = this.halfWidths[i % n] ?? this.halfWidth;
+      left.push(c.add(rr.scale(-hw)).add(new Vector3(0, 0.02, 0)));
+      right.push(c.add(rr.scale(hw)).add(new Vector3(0, 0.02, 0)));
     }
 
     this.road = MeshBuilder.CreateRibbon(
@@ -186,7 +193,8 @@ export class Track {
       for (let i = 0; i <= n; i++) {
         const c = this.centers[i % n];
         const rr = this.rolledRight(i % n);
-        path.push(c.add(rr.scale(side * (this.halfWidth + 0.5))).add(new Vector3(0, 1.2, 0)));
+        const hw = this.halfWidths[i % n] ?? this.halfWidth;
+        path.push(c.add(rr.scale(side * (hw + 0.5))).add(new Vector3(0, 1.2, 0)));
       }
       const rail = MeshBuilder.CreateTube(
         `rail${side}`,
@@ -204,7 +212,7 @@ export class Track {
     const f = this.tangents[0];
     const plane = MeshBuilder.CreateGround(
       "startLine",
-      { width: this.halfWidth * 2, height: 4 },
+      { width: (this.halfWidths[0] ?? this.halfWidth) * 2, height: 4 },
       scene
     );
     plane.position = c.add(f.scale(0)).add(new Vector3(0, 0.05, 0));
@@ -225,8 +233,9 @@ export class Track {
       const r = this.rolledRight(idx); // sit on the banked surface
       const f = this.tangents[idx];
       const power = p.power ?? 1;
+      const hw = this.halfWidths[idx] ?? this.halfWidth;
       const pos = c
-        .add(r.scale(p.offset * (this.halfWidth - 3)))
+        .add(r.scale(p.offset * (hw - 3)))
         .add(new Vector3(0, 0.1, 0));
 
       const mat = new StandardMaterial(`padMat-${idx}`, scene);
@@ -273,6 +282,7 @@ export class Track {
       height: this.centers[i].y,
       forward: this.tangents[i].clone(),
       center: this.centers[i].clone(),
+      halfWidth: this.halfWidths[i] ?? this.halfWidth,
     };
   }
 
@@ -316,6 +326,8 @@ export class Track {
     // lets a craft ride up into a banked turn.
     const bank = this.banks[bestI] ?? 0;
     const height = center.y + lateral * Math.sin(bank);
+    const hwA = this.halfWidths[bestI] ?? this.halfWidth;
+    const hwB = this.halfWidths[(bestI + 1) % n] ?? this.halfWidth;
 
     return {
       t: (bestI + bestProj) / n,
@@ -323,6 +335,7 @@ export class Track {
       height,
       forward,
       center,
+      halfWidth: hwA + (hwB - hwA) * bestProj,
     };
   }
 
