@@ -2061,3 +2061,18 @@
 .vd-mus-vol label { display: flex; align-items: center; gap: 1vh; font-size: clamp(0.66rem, 1.5vh, 0.9rem); letter-spacing: 0.12em; color: rgba(255, 255, 255, 0.7); }
 .vd-mus-vol input[type="range"] { width: clamp(120px, 16vw, 240px); accent-color: var(--vd-pink); }
 .vd-mus-vol b { color: var(--vd-lime); min-width: 2.2em; text-align: right; }
+
+/* track editor — in-editor preview drive toggle */
+.vd-ed-drive-btn {
+  background: rgba(0, 215, 242, 0.12);
+  border: 1px solid var(--vd-cyan);
+  color: var(--vd-cyan);
+  font-family: var(--vd-display);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 0.8vh 0;
+  cursor: pointer;
+  font-size: clamp(0.72rem, 1.7vh, 0.95rem);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 10px 100%, 0 100%);
+}
+.vd-ed-drive-btn.on { background: var(--vd-cyan); color: var(--vd-black); }

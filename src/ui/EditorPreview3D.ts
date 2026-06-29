@@ -45,6 +45,11 @@ export class EditorPreview3D {
   private dragStartY = 0;
   private dragStartPointerY = 0;
 
+  // in-editor autopilot test-drive
+  private driveShip: Mesh | null = null;
+  private driving = false;
+  private driveT = 0;
+
   constructor(canvas: HTMLCanvasElement, private onPointDrag?: PointDragCb) {
     this.canvas = canvas;
     this.engine = new Engine(canvas, true, { antialias: true });
@@ -86,8 +91,36 @@ export class EditorPreview3D {
     this.engine.runRenderLoop(() => {
       if (!this.active) return;
       if (this.pending && performance.now() - this.lastBuild > 120) this.rebuild();
+      if (this.driving) this.tickDrive();
       this.scene.render();
     });
+  }
+
+  /** Toggle an autopilot craft lapping the track in the preview (a quick test
+   * drive without leaving the editor). */
+  setDriving(on: boolean): void {
+    this.driving = on;
+    if (on && !this.driveShip) {
+      const body = MeshBuilder.CreateBox("drive-ship", { width: 14, height: 5, depth: 26 }, this.scene);
+      const m = new StandardMaterial("drive-ship-mat", this.scene);
+      m.emissiveColor = new Color3(0.85, 1, 0.13);
+      m.disableLighting = true;
+      body.material = m;
+      body.isPickable = false;
+      this.driveShip = body;
+    }
+    this.driveShip?.setEnabled(on);
+    if (on) this.driveT = 0;
+  }
+
+  private tickDrive(): void {
+    if (!this.track || !this.driveShip) return;
+    const dt = Math.min(0.05, this.engine.getDeltaTime() / 1000);
+    this.driveT = (this.driveT + dt / 22) % 1; // ~22s lap
+    const p = this.track.pointAt(this.driveT);
+    const a = this.track.pointAt((this.driveT + 0.004) % 1);
+    this.driveShip.position.set(p.x, p.y + 3, p.z);
+    this.driveShip.rotation.set(0, Math.atan2(a.x - p.x, a.z - p.z), 0);
   }
 
   /** Pick + drag the control-point handle spheres: ground-plane move for X/Z,

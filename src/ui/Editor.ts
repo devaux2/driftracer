@@ -39,6 +39,8 @@ export class Editor {
   private static readonly SNAP = 20;
   /** Inclusive index range selected for section copy/mirror (shift-click). */
   private selRange: { a: number; b: number } | null = null;
+  /** Autopilot test-drive running in the 3D preview. */
+  private previewDriving = false;
 
   // world→screen transform (recomputed each render to keep the track in view)
   private scale = 1;
@@ -877,6 +879,7 @@ export class Editor {
         <button class="vd-ed-smooth">∿ SMOOTH</button>
         <button class="vd-ed-straighten">— STRAIGHTEN</button>
       </div>
+      <button class="vd-ed-drive-btn ${this.previewDriving ? "on" : ""}">${this.previewDriving ? "◼ STOP PREVIEW" : "▶ PREVIEW DRIVE"}</button>
       <div class="vd-ed-len">LENGTH <b>${this.trackKm()} KM</b> · ${this.spec.points.length} PTS</div>
       <p class="vd-ed-keys">P add point · B boost · J jump · V select · Del remove · Ctrl+Z undo · arrows nudge · shift-click 2 points = section</p>
       ${selHtml}
@@ -941,6 +944,11 @@ export class Editor {
     this.panel.querySelector(".vd-ed-recenter")!.addEventListener("click", () => this.recenter3d());
     this.panel.querySelector(".vd-ed-smooth")!.addEventListener("click", () => this.smoothPath());
     this.panel.querySelector(".vd-ed-straighten")!.addEventListener("click", () => this.straightenPoint());
+    this.panel.querySelector(".vd-ed-drive-btn")!.addEventListener("click", () => {
+      this.previewDriving = !this.previewDriving;
+      this.preview3d.setDriving(this.previewDriving);
+      this.renderPanel();
+    });
     this.panel.querySelector(".vd-ed-copysec")?.addEventListener("click", () => this.copySection());
     this.panel.querySelector(".vd-ed-mirrorsec")?.addEventListener("click", () => this.mirrorSection());
     this.panel.querySelector(".vd-ed-snap")!.addEventListener("click", () => {

@@ -656,7 +656,6 @@ export class Menu {
         const foc = this.musicFocus === i + 1 ? "foc" : "";
         return `
         <div class="vd-mus-row ${foc}" data-i="${i}">
-          <span class="vd-mus-kind k-${t.kind}">${t.kind}</span>
           <span class="vd-mus-meta"><b>${t.title}</b><span>${t.artist}</span></span>
           <button class="vd-mus-tog ${menuOn ? "on" : ""}" data-i="${i}" data-pool="menu">MENU</button>
           <button class="vd-mus-tog ${raceOn ? "on" : ""}" data-i="${i}" data-pool="race">RACE</button>
