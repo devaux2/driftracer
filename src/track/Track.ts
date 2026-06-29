@@ -329,15 +329,19 @@ export class Track {
     const right = new Vector3(forward.z, 0, -forward.x);
     const lateral = Vector3.Dot(pos.subtract(center), right);
 
-    // Banked sections tilt the surface: the road rises on the raised side, so
-    // the surface height at a lateral offset climbs with the bank. This is what
-    // lets a craft ride up into a banked turn.
-    const bank = this.banks[bestI] ?? 0;
-    const height = center.y + lateral * Math.sin(bank);
+    // Banked sections tilt the surface. The mesh tilts a UNIT cross-vector by
+    // the bank, so its edge sits hw*sin(bank) UP at hw*cos(bank) ACROSS. To ride
+    // exactly on the road you can see (not clip through it), the surface height
+    // at a horizontal offset `lateral` must climb by lateral*tan(bank), and the
+    // road's visible horizontal half-width shrinks to hw*cos(bank). Matching
+    // both here is what keeps the craft on the banked surface.
+    const bankA = this.banks[bestI] ?? 0;
+    const bankB = this.banks[(bestI + 1) % n] ?? 0;
+    const bank = bankA + (bankB - bankA) * bestProj;
     const hwA = this.halfWidths[bestI] ?? this.halfWidth;
     const hwB = this.halfWidths[(bestI + 1) % n] ?? this.halfWidth;
-
-    const bankB = this.banks[(bestI + 1) % n] ?? 0;
+    const hwGeom = hwA + (hwB - hwA) * bestProj;
+    const height = center.y + lateral * Math.tan(bank);
 
     return {
       t: (bestI + bestProj) / n,
@@ -345,8 +349,8 @@ export class Track {
       height,
       forward,
       center,
-      halfWidth: hwA + (hwB - hwA) * bestProj,
-      bank: bank + (bankB - bank) * bestProj,
+      halfWidth: hwGeom * Math.cos(bank),
+      bank,
     };
   }
 
