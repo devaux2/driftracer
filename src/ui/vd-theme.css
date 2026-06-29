@@ -2044,3 +2044,14 @@
   font-size: clamp(0.66rem, 1.5vh, 0.82rem);
 }
 .vd-ed-row2 .vd-ed-del { border-color: var(--vd-pink); color: var(--vd-pink); }
+
+/* multiplayer submenu (LOCAL / ONLINE) */
+.vd-mp-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.6vh;
+  max-width: 52vw;
+}
+.vd-mp-body .vd-mode { width: 100%; }

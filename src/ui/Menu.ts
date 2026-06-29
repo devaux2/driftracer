@@ -5,7 +5,7 @@ import { ShipPreview } from "./ShipPreview";
 import type { AudioManager, Pool } from "../audio/AudioManager";
 import { assignSchemes, schemeLabel } from "../input/PlayerInput";
 
-type Screen = "main" | "garage" | "tracks" | "music" | "local";
+type Screen = "main" | "garage" | "tracks" | "music" | "local" | "mp";
 
 interface GameMode {
   id: string;
@@ -21,8 +21,7 @@ const MODES: GameMode[] = [
   { id: "time", name: "TIME ATTACK", jp: "タイムアタック", icon: ICONS.time, playable: true },
   { id: "tracks", name: "SELECT TRACK", jp: "コース選択", icon: ICONS.track, playable: true },
   { id: "gp", name: "GRAND PRIX", jp: "グランプリ", icon: ICONS.gp, playable: false },
-  { id: "local", name: "LOCAL RACE", jp: "ローカル対戦", icon: ICONS.mp, playable: true },
-  { id: "mp", name: "ONLINE", jp: "オンライン", icon: ICONS.mp, playable: false },
+  { id: "mp", name: "MULTIPLAYER", jp: "マルチプレイヤー", icon: ICONS.mp, playable: true },
   { id: "garage", name: "GARAGE", jp: "ガレージ", icon: ICONS.garage, playable: true },
   { id: "editor", name: "TRACK EDITOR", jp: "エディター", icon: ICONS.editor, playable: true },
   { id: "music", name: "MUSIC", jp: "ミュージック", icon: ICONS.music, playable: true },
@@ -57,6 +56,8 @@ export class Menu {
   private musicFocus = 0;
   /** Local split-screen player count (desktop only). */
   private localCount = 2;
+  /** Cursor on the multiplayer submenu (0 = local, 1 = online). */
+  private mpFocus = 0;
 
   constructor(
     container: HTMLElement,
@@ -92,7 +93,8 @@ export class Menu {
     else if (this.screen === "garage") this.renderGarage();
     else if (this.screen === "tracks") this.renderTracks();
     else if (this.screen === "music") this.renderMusic();
-    else this.renderLocal();
+    else if (this.screen === "local") this.renderLocal();
+    else this.renderMp();
     // Main menu is a live autopilot flythrough; garage/tracks spin the model.
     this.preview.setMode(this.screen === "main" ? "drive" : "showcase");
     this.preview.setShip(getShipById(this.selectedShipId));
@@ -241,9 +243,10 @@ export class Menu {
     });
   }
 
-  /** Modes shown on this device (local split-screen is desktop-only). */
+  /** Modes shown on this device (multiplayer is desktop-only for now — local
+   * split-screen needs a big screen and online isn't built yet). */
   private visibleModes(): GameMode[] {
-    return MODES.filter((m) => !(m.id === "local" && this.isTouchDevice));
+    return MODES.filter((m) => !(m.id === "mp" && this.isTouchDevice));
   }
 
   /** IDs the cursor can land on (playable rows, incl. Garage). */
@@ -277,8 +280,9 @@ export class Menu {
       this.goto("music");
       return;
     }
-    if (id === "local") {
-      this.goto("local");
+    if (id === "mp") {
+      this.mpFocus = 0;
+      this.goto("mp");
       return;
     }
     const mode = MODES.find((m) => m.id === id);
@@ -309,14 +313,62 @@ export class Menu {
       if (nav.left) this.cycleTrack(-1);
       if (nav.right) this.cycleTrack(1);
       if (nav.confirm || nav.back) this.goto("main");
+    } else if (this.screen === "mp") {
+      if (nav.up || nav.down) {
+        this.mpFocus = this.mpFocus === 0 ? 1 : 0;
+        this.renderMp();
+      }
+      if (nav.confirm && this.mpFocus === 0) this.goto("local");
+      if (nav.back) this.goto("main");
     } else if (this.screen === "local") {
       if (nav.left) this.setLocalCount(this.localCount - 1);
       if (nav.right) this.setLocalCount(this.localCount + 1);
       if (nav.confirm) this.onStartLocal(this.localCount, this.selectedTrackId);
-      if (nav.back) this.goto("main");
+      if (nav.back) this.goto("mp");
     } else {
       this.handleMusicPad(nav);
     }
+  }
+
+  // ---- multiplayer submenu -------------------------------------------------
+
+  private renderMp(): void {
+    this.root.className = "vd-menu overlay vd-screen-mp";
+    const opt = (idx: number, id: string, name: string, jp: string, soon: boolean) => `
+      <button class="vd-mode ${this.mpFocus === idx ? "sel" : ""} ${soon ? "soon" : ""}" data-opt="${id}">
+        <span class="vd-ic">${ICONS.mp}</span>
+        <span>
+          <span class="vd-mode-name">${name}</span>
+          <span class="vd-mode-jp">${jp}</span>
+        </span>
+        ${soon ? `<span class="soon-tag">SOON</span>` : ""}
+      </button>`;
+
+    this.content.innerHTML = `
+      <div class="vd-shell">
+        ${this.plusMarks()}
+        <header class="vd-topbar">
+          <div class="vd-brand vd-brand--garage">
+            <span class="vd-badge">${logoMark()}</span>
+            <span>
+              <span class="vd-brand-name">MULTIPLAYER</span>
+              <span class="vd-brand-jp">マルチプレイヤー</span>
+            </span>
+          </div>
+        </header>
+
+        <div class="vd-mp-body">
+          ${opt(0, "local", "LOCAL · SPLIT SCREEN", "ローカル対戦 · 2-4 プレイヤー", false)}
+          ${opt(1, "online", "ONLINE", "オンライン", true)}
+        </div>
+
+        <footer class="vd-botbar">
+          <button class="vd-act back-act"><span class="ring">✕</span> BACK</button>
+        </footer>
+      </div>`;
+
+    this.content.querySelector<HTMLButtonElement>('[data-opt="local"]')!.addEventListener("click", () => this.goto("local"));
+    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
   }
 
   // ---- local split-screen setup (desktop only) -----------------------------
@@ -377,7 +429,7 @@ export class Menu {
     this.content
       .querySelector<HTMLButtonElement>(".start-local")!
       .addEventListener("click", () => this.onStartLocal(this.localCount, this.selectedTrackId));
-    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
+    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("mp"));
   }
 
   // ---- garage: ship select -------------------------------------------------
