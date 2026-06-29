@@ -2076,3 +2076,37 @@
 .vd-lc-player.select .vd-lc-ready { color: var(--vd-cyan); }
 .vd-lc-emblem { width: 2.8vh; height: 2.8vh; display: inline-block; flex: 0 0 auto; }
 .vd-lc-emblem .vd-emblem { width: 100%; height: 100%; }
+
+/* ============================================================================
+   SCREEN-ENTER ANIMATIONS — snappy, directional (plays once per screen change)
+   ========================================================================== */
+@keyframes vd-shell-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.vd-shell.vd-enter { animation: vd-shell-in 0.26s cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+
+@keyframes vd-row-in {
+  from { opacity: 0; transform: translateX(-34px); }
+  to { opacity: 1; transform: none; }
+}
+.vd-shell.vd-enter .vd-modes > *,
+.vd-shell.vd-enter .vd-mp-body > *,
+.vd-shell.vd-enter .vd-lc-players > *,
+.vd-shell.vd-enter .vd-cards > *,
+.vd-shell.vd-enter .vd-track-grid > * {
+  animation: vd-row-in 0.3s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+/* stagger the first several rows/cards for a flowing left-to-right reveal */
+.vd-shell.vd-enter :is(.vd-modes, .vd-mp-body, .vd-lc-players, .vd-cards, .vd-track-grid) > *:nth-child(1) { animation-delay: 0s; }
+.vd-shell.vd-enter :is(.vd-modes, .vd-mp-body, .vd-lc-players, .vd-cards, .vd-track-grid) > *:nth-child(2) { animation-delay: 0.04s; }
+.vd-shell.vd-enter :is(.vd-modes, .vd-mp-body, .vd-lc-players, .vd-cards, .vd-track-grid) > *:nth-child(3) { animation-delay: 0.08s; }
+.vd-shell.vd-enter :is(.vd-modes, .vd-mp-body, .vd-lc-players, .vd-cards, .vd-track-grid) > *:nth-child(4) { animation-delay: 0.12s; }
+.vd-shell.vd-enter :is(.vd-modes, .vd-mp-body, .vd-lc-players, .vd-cards, .vd-track-grid) > *:nth-child(5) { animation-delay: 0.16s; }
+.vd-shell.vd-enter :is(.vd-modes, .vd-mp-body, .vd-lc-players, .vd-cards, .vd-track-grid) > *:nth-child(6) { animation-delay: 0.2s; }
+.vd-shell.vd-enter :is(.vd-modes, .vd-mp-body, .vd-lc-players, .vd-cards, .vd-track-grid) > *:nth-child(7) { animation-delay: 0.24s; }
+.vd-shell.vd-enter :is(.vd-modes, .vd-mp-body, .vd-lc-players, .vd-cards, .vd-track-grid) > *:nth-child(8) { animation-delay: 0.28s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vd-shell.vd-enter, .vd-shell.vd-enter * { animation: none !important; }
+}

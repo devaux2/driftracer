@@ -69,6 +69,8 @@ export class Menu {
   private padPrev = new Map<number, { a: boolean; b: boolean; start: boolean; left: boolean; right: boolean }>();
   /** Cursor on the multiplayer submenu (0 = local, 1 = online). */
   private mpFocus = 0;
+  /** Set on a screen change so render() plays the enter animation once. */
+  private entering = false;
 
   constructor(
     container: HTMLElement,
@@ -109,6 +111,12 @@ export class Menu {
     else if (this.screen === "local") this.renderLocal();
     else if (this.screen === "mp") this.renderMp();
     else this.renderSolo();
+    // Play the screen-enter animation only on an actual screen change, not on
+    // the frequent in-screen re-renders (cursor moves, ship cycles, lobby ticks).
+    if (this.entering) {
+      this.content.querySelector(".vd-shell")?.classList.add("vd-enter");
+      this.entering = false;
+    }
     // Main menu is a live autopilot flythrough; garage/tracks spin the model.
     this.preview.setMode(this.screen === "main" ? "drive" : "showcase");
     this.preview.setShip(getShipById(this.selectedShipId));
@@ -871,11 +879,15 @@ export class Menu {
       this.padPrev.clear();
     }
     this.screen = screen;
+    this.entering = true;
     this.render();
   }
 
   show(v: boolean): void {
-    if (v) this.screen = "main";
+    if (v) {
+      this.screen = "main";
+      this.entering = true;
+    }
     this.root.style.display = v ? "" : "none";
     this.preview.setActive(v);
     if (v) this.render();
