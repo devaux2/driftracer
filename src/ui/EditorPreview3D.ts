@@ -6,10 +6,15 @@ import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Vector3, Matrix } from "@babylonjs/core/Maths/math.vector";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
+import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
 import { Track } from "../track/Track";
 import type { ControlPoint, TrackSpec } from "../config/tracks";
+
+/** Drag phase reported to the editor as the user moves a 3D handle. */
+export type DragPhase = "start" | "move" | "end";
+export type PointDragCb = (index: number, x: number, y: number, z: number, phase: DragPhase) => void;
 
 /**
  * Live orbitable 3D preview of the track being edited. Builds the real
@@ -30,7 +35,18 @@ export class EditorPreview3D {
   private pending: TrackSpec | null = null;
   private lastBuild = 0;
 
-  constructor(canvas: HTMLCanvasElement) {
+  // draggable control-point handles
+  private canvas: HTMLCanvasElement;
+  private handles: Mesh[] = [];
+  private handleMat: StandardMaterial;
+  private startMat: StandardMaterial;
+  private dragIdx: number | null = null;
+  private dragShift = false;
+  private dragStartY = 0;
+  private dragStartPointerY = 0;
+
+  constructor(canvas: HTMLCanvasElement, private onPointDrag?: PointDragCb) {
+    this.canvas = canvas;
     this.engine = new Engine(canvas, true, { antialias: true });
     this.scene = new Scene(this.engine);
     this.scene.clearColor = new Color4(0.02, 0.02, 0.05, 1);
@@ -57,10 +73,77 @@ export class EditorPreview3D {
     this.marker.material = mm;
     this.marker.setEnabled(false);
 
+    // control-point handle materials (cyan; start point lime)
+    this.handleMat = new StandardMaterial("ed-h", this.scene);
+    this.handleMat.emissiveColor = new Color3(0, 0.84, 0.95);
+    this.handleMat.disableLighting = true;
+    this.startMat = new StandardMaterial("ed-h0", this.scene);
+    this.startMat.emissiveColor = new Color3(0.85, 1, 0.13);
+    this.startMat.disableLighting = true;
+
+    if (this.onPointDrag) this.bindHandleDrag();
+
     this.engine.runRenderLoop(() => {
       if (!this.active) return;
       if (this.pending && performance.now() - this.lastBuild > 120) this.rebuild();
       this.scene.render();
+    });
+  }
+
+  /** Pick + drag the control-point handle spheres: ground-plane move for X/Z,
+   * Shift-drag for height. Orbit is suspended while a handle is held. */
+  private bindHandleDrag(): void {
+    this.scene.onPointerObservable.add((pi) => {
+      if (!this.active) return;
+      if (pi.type === PointerEventTypes.POINTERDOWN) {
+        const pick = this.scene.pick(this.scene.pointerX, this.scene.pointerY, (m) => m.name.startsWith("h"));
+        if (pick?.hit && pick.pickedMesh) {
+          this.dragIdx = parseInt(pick.pickedMesh.name.slice(1), 10);
+          this.dragShift = !!(pi.event as PointerEvent).shiftKey;
+          this.dragStartY = this.handles[this.dragIdx].position.y;
+          this.dragStartPointerY = this.scene.pointerY;
+          this.cam.detachControl();
+          this.onPointDrag?.(this.dragIdx, 0, 0, 0, "start");
+        }
+      } else if (pi.type === PointerEventTypes.POINTERMOVE && this.dragIdx != null) {
+        const h = this.handles[this.dragIdx];
+        if (this.dragShift) {
+          const newY = this.dragStartY + (this.dragStartPointerY - this.scene.pointerY) * 1.5;
+          h.position.y = newY;
+          this.onPointDrag?.(this.dragIdx, h.position.x, newY - 3, h.position.z, "move");
+        } else {
+          const ray = this.scene.createPickingRay(this.scene.pointerX, this.scene.pointerY, Matrix.Identity(), this.cam);
+          if (Math.abs(ray.direction.y) > 1e-4) {
+            const t = (h.position.y - ray.origin.y) / ray.direction.y;
+            if (t > 0) {
+              const pt = ray.origin.add(ray.direction.scale(t));
+              h.position.x = pt.x;
+              h.position.z = pt.z;
+              this.onPointDrag?.(this.dragIdx, pt.x, h.position.y - 3, pt.z, "move");
+            }
+          }
+        }
+      } else if (pi.type === PointerEventTypes.POINTERUP && this.dragIdx != null) {
+        this.onPointDrag?.(this.dragIdx, 0, 0, 0, "end");
+        this.dragIdx = null;
+        this.cam.attachControl(this.canvas, true);
+      }
+    });
+  }
+
+  /** Sync the handle spheres to the spec's control points (creating/removing). */
+  private syncHandles(spec: TrackSpec): void {
+    while (this.handles.length > spec.points.length) this.handles.pop()?.dispose();
+    while (this.handles.length < spec.points.length) {
+      const s = MeshBuilder.CreateSphere(`h${this.handles.length}`, { diameter: 11, segments: 10 }, this.scene);
+      this.handles.push(s);
+    }
+    spec.points.forEach((p, i) => {
+      const h = this.handles[i];
+      if (this.dragIdx === i) return; // don't yank the handle being dragged
+      h.name = `h${i}`;
+      h.material = i === 0 ? this.startMat : this.handleMat;
+      h.position.set(p[0], p[1] + 3, p[2]);
     });
   }
 
@@ -76,6 +159,7 @@ export class EditorPreview3D {
     this.lastBuild = performance.now();
     this.track?.dispose();
     this.track = new Track(this.scene, spec);
+    this.syncHandles(spec);
     if (!this.framed) {
       this.frameCamera(spec);
       this.framed = true;
@@ -119,6 +203,7 @@ export class EditorPreview3D {
   }
 
   dispose(): void {
+    for (const h of this.handles) h.dispose();
     this.track?.dispose();
     this.engine.dispose();
   }

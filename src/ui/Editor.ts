@@ -98,7 +98,22 @@ export class Editor {
     container.appendChild(this.root);
     this.ctx = this.canvas.getContext("2d")!;
     this.sideCtx = this.side.getContext("2d")!;
-    this.preview3d = new EditorPreview3D(p3d);
+    this.preview3d = new EditorPreview3D(p3d, (i, x, y, z, phase) => {
+      if (phase === "start") {
+        this.pushHistory();
+        return;
+      }
+      if (phase === "end") return;
+      const pt = this.spec.points[i];
+      if (!pt) return;
+      pt[0] = Math.round(x);
+      pt[1] = Math.round(y);
+      pt[2] = Math.round(z);
+      this.sel = { type: "point", index: i };
+      this.selRange = null;
+      this.renderPanel();
+      this.draw();
+    });
 
     this.bindCanvas();
     this.bindSide();
