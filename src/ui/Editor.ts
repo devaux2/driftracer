@@ -1,5 +1,6 @@
 import type { TrackSpec, PadSpec } from "../config/tracks";
 import { baseSpec, cloneSpec, loadCustomTrack, saveCustomTrack } from "../track/customTrack";
+import { EditorPreview3D } from "./EditorPreview3D";
 
 type Tool = "select" | "point" | "boost" | "jump";
 type Sel = { type: "point" | "pad"; index: number } | null;
@@ -22,10 +23,17 @@ export class Editor {
   private side: HTMLCanvasElement;
   private sideCtx: CanvasRenderingContext2D;
   private panel: HTMLDivElement;
+  private preview3d: EditorPreview3D;
 
   private spec: TrackSpec = baseSpec();
   private tool: Tool = "select";
   private sel: Sel = null;
+
+  // undo / redo (spec snapshots)
+  private history: TrackSpec[] = [];
+  private redoStack: TrackSpec[] = [];
+  /** Set once per drag gesture so we only snapshot the pre-drag state. */
+  private gestureSaved = false;
 
   // world→screen transform (recomputed each render to keep the track in view)
   private scale = 1;
@@ -47,6 +55,9 @@ export class Editor {
     this.root.className = "vd-editor overlay";
     this.root.style.display = "none";
 
+    const main = document.createElement("div");
+    main.className = "vd-ed-main";
+
     const views = document.createElement("div");
     views.className = "vd-ed-views";
     this.canvas = document.createElement("canvas");
@@ -59,6 +70,16 @@ export class Editor {
     sideWrap.appendChild(this.side);
     views.append(this.canvas, sideWrap);
 
+    // Live, orbitable 3D preview of the real track (rebuilt as you edit).
+    const p3dWrap = document.createElement("div");
+    p3dWrap.className = "vd-ed-3d-wrap";
+    p3dWrap.innerHTML = `<span class="vd-ed-3d-label">LIVE 3D ▸ drag to orbit · scroll to zoom</span>`;
+    const p3d = document.createElement("canvas");
+    p3d.className = "vd-ed-3d";
+    p3dWrap.appendChild(p3d);
+
+    main.append(views, p3dWrap);
+
     this.panel = document.createElement("div");
     this.panel.className = "vd-ed-panel";
 
@@ -68,10 +89,11 @@ export class Editor {
     this.fileInput.style.display = "none";
     this.fileInput.addEventListener("change", () => void this.handleImport());
 
-    this.root.append(views, this.panel, this.fileInput);
+    this.root.append(main, this.panel, this.fileInput);
     container.appendChild(this.root);
     this.ctx = this.canvas.getContext("2d")!;
     this.sideCtx = this.side.getContext("2d")!;
+    this.preview3d = new EditorPreview3D(p3d);
 
     this.bindCanvas();
     this.bindSide();
@@ -87,13 +109,19 @@ export class Editor {
     this.spec = loadCustomTrack() ?? baseSpec();
     this.tool = "select";
     this.sel = null;
+    this.history = [];
+    this.redoStack = [];
     this.root.style.display = "";
+    this.preview3d.setActive(true);
+    this.preview3d.resetFraming();
+    this.preview3d.setSpec(this.spec);
     this.resize();
     this.renderPanel();
   }
 
   close(): void {
     this.root.style.display = "none";
+    this.preview3d.setActive(false);
   }
 
   private resize(): void {
@@ -106,6 +134,7 @@ export class Editor {
       cv.height = Math.max(1, Math.floor((cv.clientHeight || 1) * dpr));
       cx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
+    this.preview3d.resize();
     this.draw();
   }
 
@@ -198,6 +227,35 @@ export class Editor {
   private draw(): void {
     this.drawTop();
     this.drawSide();
+    // keep the live 3D preview + selection marker in sync
+    this.preview3d.setSpec(this.spec);
+    this.preview3d.setSelection(this.sel?.type === "point" ? this.spec.points[this.sel.index] : null);
+  }
+
+  // ---- undo / redo ---------------------------------------------------------
+
+  private pushHistory(): void {
+    this.history.push(cloneSpec(this.spec));
+    if (this.history.length > 60) this.history.shift();
+    this.redoStack = [];
+  }
+  private undo(): void {
+    const prev = this.history.pop();
+    if (!prev) return;
+    this.redoStack.push(cloneSpec(this.spec));
+    this.spec = prev;
+    this.sel = null;
+    this.renderPanel();
+    this.draw();
+  }
+  private redo(): void {
+    const next = this.redoStack.pop();
+    if (!next) return;
+    this.history.push(cloneSpec(this.spec));
+    this.spec = next;
+    this.sel = null;
+    this.renderPanel();
+    this.draw();
   }
 
   private drawTop(): void {
@@ -391,6 +449,10 @@ export class Editor {
     });
     this.side.addEventListener("pointermove", (e) => {
       if (!this.vDragging || this.sel?.type !== "point") return;
+      if (!this.gestureSaved) {
+        this.pushHistory();
+        this.gestureSaved = true;
+      }
       const rect = this.side.getBoundingClientRect();
       this.spec.points[this.sel.index][1] = Math.round(this.sideToHeight(e.clientY - rect.top));
       this.draw();
@@ -403,6 +465,7 @@ export class Editor {
     const end = (e: PointerEvent) => {
       if (this.vDragging) {
         this.vDragging = false;
+        this.gestureSaved = false;
         this.side.releasePointerCapture?.(e.pointerId);
       }
     };
@@ -466,6 +529,10 @@ export class Editor {
 
     this.canvas.addEventListener("pointermove", (e) => {
       if (!this.dragging || !this.sel) return;
+      if (!this.gestureSaved) {
+        this.pushHistory();
+        this.gestureSaved = true;
+      }
       const rect = this.canvas.getBoundingClientRect();
       const world = this.toWorld(e.clientX - rect.left, e.clientY - rect.top);
       if (this.sel.type === "point") {
@@ -485,6 +552,7 @@ export class Editor {
     const endDrag = (e: PointerEvent) => {
       if (this.dragging) {
         this.dragging = false;
+        this.gestureSaved = false;
         this.canvas.releasePointerCapture?.(e.pointerId);
         if (this.sel?.type === "pad") this.renderPanel(); // sync offset slider
       }
@@ -494,6 +562,7 @@ export class Editor {
   }
 
   private insertPoint(world: Pt): void {
+    this.pushHistory();
     // insert after the control point nearest the click
     const p = this.spec.points;
     let best = 0, bestD = Infinity;
@@ -509,6 +578,7 @@ export class Editor {
   }
 
   private addPad(kind: "boost" | "jump", world: Pt): void {
+    this.pushHistory();
     const { t, offset } = this.locate(world);
     const pad: PadSpec = { kind, t, offset };
     if (kind === "jump") pad.power = 1;
@@ -521,8 +591,10 @@ export class Editor {
     if (!this.sel) return;
     if (this.sel.type === "point") {
       if (this.spec.points.length <= 4) return; // need a valid loop
+      this.pushHistory();
       this.spec.points.splice(this.sel.index, 1);
     } else {
+      this.pushHistory();
       this.spec.pads.splice(this.sel.index, 1);
     }
     this.sel = null;
@@ -543,6 +615,7 @@ export class Editor {
         <div class="vd-ed-sel">
           <div class="vd-ed-row"><span>POINT ${this.sel.index}${this.sel.index === 0 ? " (START)" : ""}</span></div>
           <label>HEIGHT <input type="range" id="ed-h" min="-160" max="160" step="2" value="${p[1]}"><b id="ed-hv">${p[1]}</b></label>
+          <label>TILT <input type="range" id="ed-b" min="-45" max="45" step="1" value="${p[3] ?? 0}"><b id="ed-bv">${p[3] ?? 0}°</b></label>
           <button class="vd-ed-del">DELETE POINT</button>
         </div>`;
     } else if (this.sel?.type === "pad") {
@@ -565,7 +638,7 @@ export class Editor {
         ${toolBtn("jump", "▲ Jump")}
       </div>
       <label class="vd-ed-width">ROAD WIDTH <input type="range" id="ed-w" min="20" max="120" step="2" value="${this.spec.roadHalfWidth}"><b id="ed-wv">${this.spec.roadHalfWidth}</b></label>
-      <p class="vd-ed-keys">P add point · B boost · J jump · V select · Del remove</p>
+      <p class="vd-ed-keys">P add point · B boost · J jump · V select · Del remove · Ctrl+Z undo</p>
       ${selHtml}
       <div class="vd-ed-actions">
         <button class="vd-ed-test start-btn">▶ TEST DRIVE</button>
@@ -591,6 +664,8 @@ export class Editor {
     );
     const wire = (id: string, valId: string, fn: (v: number) => void, fmt: (v: number) => string) => {
       const el = this.panel.querySelector<HTMLInputElement>(id);
+      // snapshot once when the slider is grabbed, so undo restores the pre-drag value
+      el?.addEventListener("pointerdown", () => this.pushHistory());
       el?.addEventListener("input", () => {
         const v = parseFloat(el.value);
         fn(v);
@@ -600,8 +675,10 @@ export class Editor {
       });
     };
     wire("#ed-w", "#ed-wv", (v) => (this.spec.roadHalfWidth = v), (v) => String(v));
-    if (this.sel?.type === "point")
+    if (this.sel?.type === "point") {
       wire("#ed-h", "#ed-hv", (v) => (this.spec.points[this.sel!.index][1] = v), (v) => String(v));
+      wire("#ed-b", "#ed-bv", (v) => (this.spec.points[this.sel!.index][3] = v), (v) => `${v}°`);
+    }
     if (this.sel?.type === "pad") {
       wire("#ed-o", "#ed-ov", (v) => (this.spec.pads[this.sel!.index].offset = v), (v) => v.toFixed(2));
       wire("#ed-p", "#ed-pv", (v) => (this.spec.pads[this.sel!.index].power = v), (v) => v.toFixed(1));
@@ -613,14 +690,18 @@ export class Editor {
       this.flash(".vd-ed-save", "SAVED");
     });
     this.panel.querySelector(".vd-ed-load")!.addEventListener("click", () => {
+      this.pushHistory();
       this.spec = loadCustomTrack() ?? baseSpec();
       this.sel = null;
+      this.preview3d.resetFraming();
       this.renderPanel();
       this.draw();
     });
     this.panel.querySelector(".vd-ed-reset")!.addEventListener("click", () => {
+      this.pushHistory();
       this.spec = baseSpec();
       this.sel = null;
+      this.preview3d.resetFraming();
       this.renderPanel();
       this.draw();
     });
@@ -636,6 +717,18 @@ export class Editor {
   private onKey(e: KeyboardEvent): void {
     if (this.root.style.display === "none") return;
     const k = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && k === "z") {
+      e.preventDefault();
+      if (e.shiftKey) this.redo();
+      else this.undo();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && k === "y") {
+      e.preventDefault();
+      this.redo();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) return; // leave other Ctrl combos to the browser
     if (k === "delete" || k === "backspace") {
       e.preventDefault();
       this.deleteSelected();
@@ -657,9 +750,11 @@ export class Editor {
     if (!file) return;
     const spec = await this.onImport(file);
     if (spec) {
+      this.pushHistory();
       this.spec = spec;
       this.sel = null;
       this.tool = "select";
+      this.preview3d.resetFraming();
       this.renderPanel();
       this.draw();
     } else {

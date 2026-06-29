@@ -32,7 +32,7 @@ export const ICONS: Record<string, string> = {
 };
 
 /** Mini top-down outline of a track's centre-line, for the map picker. */
-export function trackThumb(points: [number, number, number][]): string {
+export function trackThumb(points: [number, number, number, number?][]): string {
   const n = points.length;
   const cr = (a: number, b: number, c: number, d: number, t: number) => {
     const t2 = t * t, t3 = t2 * t;

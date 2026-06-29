@@ -44,6 +44,8 @@ export class Track {
   private centers: Vector3[] = [];
   private tangents: Vector3[] = [];
   private rights: Vector3[] = [];
+  /** Per-sample bank (roll) in radians, interpolated from the control points. */
+  private banks: number[] = [];
   private cumLen: number[] = [];
   private totalLen = 0;
 
@@ -88,6 +90,18 @@ export class Track {
       this.rights.push(new Vector3(tangent.z, 0, -tangent.x));
     }
 
+    // Per-sample bank: interpolate the control-point bank angles (degrees) with
+    // a smoothstep so tilt eases in/out instead of snapping at control points.
+    const nseg = spec.points.length;
+    const segBank = (idx: number) => ((spec.points[idx % nseg][3] ?? 0) * Math.PI) / 180;
+    for (let i = 0; i < n; i++) {
+      const f = (i / n) * nseg;
+      const seg = Math.floor(f) % nseg;
+      const frac = f - Math.floor(f);
+      const s = frac * frac * (3 - 2 * frac);
+      this.banks.push(segBank(seg) + (segBank(seg + 1) - segBank(seg)) * s);
+    }
+
     this.cumLen = [0];
     for (let i = 1; i < n; i++) {
       this.totalLen += Vector3.Distance(this.centers[i], this.centers[i - 1]);
@@ -97,15 +111,24 @@ export class Track {
     this.totalLen += Vector3.Distance(this.centers[n - 1], this.centers[0]);
   }
 
+  /** The cross-track right vector at sample i, rolled by the bank so the road
+   * tilts about its direction of travel (positive raises the right edge). */
+  private rolledRight(i: number): Vector3 {
+    const r = this.rights[i];
+    const b = this.banks[i] ?? 0;
+    const c = Math.cos(b);
+    return new Vector3(r.x * c, Math.sin(b), r.z * c);
+  }
+
   private buildRoadMesh(scene: Scene): void {
     const left: Vector3[] = [];
     const right: Vector3[] = [];
     const n = this.centers.length;
     for (let i = 0; i <= n; i++) {
       const c = this.centers[i % n];
-      const r = this.rights[i % n];
-      left.push(c.add(r.scale(-this.halfWidth)).add(new Vector3(0, 0.02, 0)));
-      right.push(c.add(r.scale(this.halfWidth)).add(new Vector3(0, 0.02, 0)));
+      const rr = this.rolledRight(i % n);
+      left.push(c.add(rr.scale(-this.halfWidth)).add(new Vector3(0, 0.02, 0)));
+      right.push(c.add(rr.scale(this.halfWidth)).add(new Vector3(0, 0.02, 0)));
     }
 
     this.road = MeshBuilder.CreateRibbon(
@@ -162,8 +185,8 @@ export class Track {
       const path: Vector3[] = [];
       for (let i = 0; i <= n; i++) {
         const c = this.centers[i % n];
-        const r = this.rights[i % n];
-        path.push(c.add(r.scale(side * (this.halfWidth + 0.5))).add(new Vector3(0, 1.2, 0)));
+        const rr = this.rolledRight(i % n);
+        path.push(c.add(rr.scale(side * (this.halfWidth + 0.5))).add(new Vector3(0, 1.2, 0)));
       }
       const rail = MeshBuilder.CreateTube(
         `rail${side}`,
@@ -199,7 +222,7 @@ export class Track {
     for (const p of spec.pads) {
       const idx = Math.floor(p.t * this.centers.length) % this.centers.length;
       const c = this.centers[idx];
-      const r = this.rights[idx];
+      const r = this.rolledRight(idx); // sit on the banked surface
       const f = this.tangents[idx];
       const power = p.power ?? 1;
       const pos = c
@@ -288,10 +311,16 @@ export class Track {
     const right = new Vector3(forward.z, 0, -forward.x);
     const lateral = Vector3.Dot(pos.subtract(center), right);
 
+    // Banked sections tilt the surface: the road rises on the raised side, so
+    // the surface height at a lateral offset climbs with the bank. This is what
+    // lets a craft ride up into a banked turn.
+    const bank = this.banks[bestI] ?? 0;
+    const height = center.y + lateral * Math.sin(bank);
+
     return {
       t: (bestI + bestProj) / n,
       lateral,
-      height: center.y,
+      height,
       forward,
       center,
     };

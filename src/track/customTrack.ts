@@ -1,4 +1,4 @@
-import type { TrackSpec } from "../config/tracks";
+import type { ControlPoint, TrackSpec } from "../config/tracks";
 
 /** Persistent storage for a player-authored track (the editor's output). */
 const KEY = "driftracer.customtrack";
@@ -9,7 +9,7 @@ export function cloneSpec(spec: TrackSpec): TrackSpec {
     id: spec.id,
     name: spec.name,
     roadHalfWidth: spec.roadHalfWidth,
-    points: spec.points.map((p) => [p[0], p[1], p[2]] as [number, number, number]),
+    points: spec.points.map((p) => (p[3] ? [p[0], p[1], p[2], p[3]] : [p[0], p[1], p[2]]) as ControlPoint),
     pads: spec.pads.map((p) => ({ kind: p.kind, t: p.t, offset: p.offset, power: p.power })),
   };
 }
