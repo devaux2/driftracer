@@ -11,7 +11,7 @@ import { GridMaterial } from "@babylonjs/materials/grid/gridMaterial";
 
 import { Viewport } from "@babylonjs/core/Maths/math.viewport";
 import { InputManager } from "../input/InputManager";
-import { PlayerInput, assignSchemes } from "../input/PlayerInput";
+import { PlayerInput, type Scheme } from "../input/PlayerInput";
 import { neutralControl, type ControlState } from "../input/types";
 import { Track } from "../track/Track";
 import { Ship } from "../ship/Ship";
@@ -153,7 +153,7 @@ export class Game {
         this.startRace(ship, mode === "time" ? "time" : "quick", useGyro, trackId),
       () => this.openEditor(),
       this.audio,
-      (count, trackId) => this.startLocalRace(count, trackId)
+      (schemes, trackId) => this.startLocalRace(schemes, trackId)
     );
 
     this.editor = new Editor(
@@ -363,8 +363,8 @@ export class Game {
 
   /** Start a local split-screen race for `count` players (2-4). Single-player
    * state is left untouched; this drives a parallel N-player path. */
-  private startLocalRace(count: number, trackId?: string): void {
-    count = Math.max(2, Math.min(4, count));
+  private startLocalRace(schemes: Scheme[], trackId?: string): void {
+    const count = Math.max(2, Math.min(4, schemes.length));
     if (trackId && this.track.spec.id !== trackId) this.loadTrackSpec(getTrackById(trackId));
 
     // tear down any previous race (single or local)
@@ -389,7 +389,6 @@ export class Game {
       return this.track.startPosition.add(fwd.scale(ahead)).add(right.scale(lateral));
     };
 
-    const schemes = assignSchemes(count);
     for (let i = 0; i < count; i++) {
       const spec = SHIPS[i % SHIPS.length];
       const ship = new Ship(this.scene, spec);
@@ -568,11 +567,12 @@ export class Game {
       highlight: p.finishPos === 1,
     }));
     const trackId = this.track.spec.id;
+    const schemes = this.localPlayers.map((p) => p.input.scheme); // retry with the same devices
     this.results.show(
       "RACE COMPLETE",
       `LOCAL · ${count}P`,
       lines,
-      () => this.startLocalRace(count, trackId),
+      () => this.startLocalRace(schemes, trackId),
       () => this.returnToMenu()
     );
   }
@@ -782,7 +782,10 @@ export class Game {
         this.speedLines.render(dt, 0, 0);
       }
     } else {
-      if (this.mode === "menu") this.handleMenuPad();
+      if (this.mode === "menu") {
+        this.handleMenuPad();
+        this.menu.tick(); // per-device polling for the split-screen join lobby
+      }
       // Keep the scene alive behind the menu / editor.
       this.speedLines.render(dt, 0, 0);
     }

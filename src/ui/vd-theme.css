@@ -2062,3 +2062,10 @@
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 10px 100%, 0 100%);
 }
 .vd-ed-drive-btn.on { background: var(--vd-cyan); color: var(--vd-black); }
+
+/* local split-screen join lobby states */
+.vd-lc-player.joined { border-color: rgba(216, 246, 0, 0.4); }
+.vd-lc-player.open { opacity: 0.55; }
+.vd-lc-open { color: rgba(255, 255, 255, 0.5); letter-spacing: 0.08em; font-size: clamp(0.8rem, 2vh, 1.1rem); }
+.vd-lc-ready { margin-left: 1.6vh; color: var(--vd-lime); font-weight: 700; letter-spacing: 0.12em; font-size: clamp(0.72rem, 1.7vh, 1rem); }
+.vd-act.start-local.disabled { opacity: 0.4; pointer-events: none; }

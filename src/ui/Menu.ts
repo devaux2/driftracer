@@ -3,7 +3,7 @@ import { TRACKS } from "../config/tracks";
 import { logoMark, ICONS, shipIcon, trackThumb } from "./marks";
 import { ShipPreview } from "./ShipPreview";
 import type { AudioManager, Pool } from "../audio/AudioManager";
-import { assignSchemes, schemeLabel } from "../input/PlayerInput";
+import { schemeLabel, type Scheme } from "../input/PlayerInput";
 
 type Screen = "main" | "garage" | "tracks" | "music" | "local" | "mp" | "solo";
 
@@ -62,8 +62,11 @@ export class Menu {
   private useGyro = false;
   /** Gamepad cursor on the music screen (0 = skip button, 1.. = track rows). */
   private musicFocus = 0;
-  /** Local split-screen player count (desktop only). */
-  private localCount = 2;
+  /** Local split-screen join lobby: the devices that have claimed a slot,
+   * in join order (player 1 first). */
+  private lobby: Scheme[] = [];
+  /** Per-gamepad previous button state for join/leave/start edge detection. */
+  private padPrev = new Map<number, { a: boolean; b: boolean; start: boolean }>();
   /** Cursor on the multiplayer submenu (0 = local, 1 = online). */
   private mpFocus = 0;
 
@@ -73,7 +76,7 @@ export class Menu {
     private onStart: (ship: ShipSpec, mode: string, useGyro: boolean, trackId: string) => void,
     private onEditor: () => void,
     private audio: AudioManager,
-    private onStartLocal: (count: number, trackId: string) => void
+    private onStartLocal: (schemes: Scheme[], trackId: string) => void
   ) {
     this.root = document.createElement("div");
     this.root.className = "vd-menu overlay";
@@ -92,6 +95,8 @@ export class Menu {
 
     this.preview = new ShipPreview(this.canvas);
     window.addEventListener("resize", () => this.positionPreview());
+    // Keyboard join/start for the split-screen lobby (only acts on that screen).
+    window.addEventListener("keydown", (e) => this.lobbyKey(e));
 
     this.render();
   }
@@ -337,9 +342,8 @@ export class Menu {
       if (nav.confirm && this.mpFocus === 0) this.goto("local");
       if (nav.back) this.goto("main");
     } else if (this.screen === "local") {
-      if (nav.left) this.setLocalCount(this.localCount - 1);
-      if (nav.right) this.setLocalCount(this.localCount + 1);
-      if (nav.confirm) this.onStartLocal(this.localCount, this.selectedTrackId);
+      // join/leave/start are handled per-device in tick()/lobbyKey(); only the
+      // shared "back" comes through the aggregated nav.
       if (nav.back) this.goto("mp");
     } else {
       this.handleMusicPad(nav);
@@ -430,32 +434,101 @@ export class Menu {
     this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
   }
 
-  // ---- local split-screen setup (desktop only) -----------------------------
+  // ---- local split-screen join lobby ---------------------------------------
 
-  private setLocalCount(n: number): void {
-    this.localCount = Math.max(2, Math.min(4, n));
+  private static readonly LC_ACCENTS = ["#d8f600", "#00d7f2", "#ff5a1f", "#f4044e"];
+
+  private sameScheme(a: Scheme, b: Scheme): boolean {
+    if (a.kind !== b.kind) return false;
+    return a.kind !== "gamepad" || a.index === (b as { index: number }).index;
+  }
+
+  /** Claim the next free slot for a device (ignored if it already joined or the
+   * lobby is full). */
+  private joinScheme(s: Scheme): void {
+    if (this.screen !== "local") return;
+    if (this.lobby.length >= 4) return;
+    if (this.lobby.some((x) => this.sameScheme(x, s))) return;
+    this.lobby.push(s);
     this.renderLocal();
+  }
+
+  private leaveScheme(s: Scheme): void {
+    const i = this.lobby.findIndex((x) => this.sameScheme(x, s));
+    if (i < 0) return;
+    this.lobby.splice(i, 1);
+    this.renderLocal();
+  }
+
+  private beginLocal(): void {
+    if (this.screen === "local" && this.lobby.length >= 2) {
+      this.onStartLocal([...this.lobby], this.selectedTrackId);
+    }
+  }
+
+  /** Keyboard joining: ENTER = arrow-keys player, R-SHIFT = WASD player,
+   * SPACE = start, ESC = back. Only acts on the lobby screen. */
+  private lobbyKey(e: KeyboardEvent): void {
+    if (this.screen !== "local") return;
+    if (e.code === "Enter") {
+      e.preventDefault();
+      this.joinScheme({ kind: "kbd-arrows" });
+    } else if (e.code === "ShiftRight") {
+      e.preventDefault();
+      this.joinScheme({ kind: "kbd-wasd" });
+    } else if (e.code === "Space") {
+      e.preventDefault();
+      this.beginLocal();
+    } else if (e.code === "Escape") {
+      this.goto("mp");
+    }
+  }
+
+  /** Polled each frame (from Game) so every gamepad is read individually: A/Start
+   * to join, B to leave, Start (when ≥2 ready) to begin. */
+  tick(): void {
+    if (this.screen !== "local") return;
+    const pads = navigator.getGamepads?.() ?? [];
+    for (let i = 0; i < pads.length; i++) {
+      const pad = pads[i];
+      if (!pad) continue;
+      const a = !!pad.buttons[0]?.pressed;
+      const b = !!pad.buttons[1]?.pressed;
+      const start = !!pad.buttons[9]?.pressed;
+      const prev = this.padPrev.get(i) ?? { a: false, b: false, start: false };
+      const joined = this.lobby.some((x) => x.kind === "gamepad" && x.index === i);
+      if (a && !prev.a) this.joinScheme({ kind: "gamepad", index: i });
+      if (b && !prev.b) this.leaveScheme({ kind: "gamepad", index: i });
+      if (start && !prev.start) {
+        if (joined) this.beginLocal();
+        else this.joinScheme({ kind: "gamepad", index: i });
+      }
+      this.padPrev.set(i, { a, b, start });
+    }
   }
 
   private renderLocal(): void {
     this.root.className = "vd-menu overlay vd-screen-local";
-    const schemes = assignSchemes(this.localCount);
-    const accents = ["#d8f600", "#00d7f2", "#ff5a1f", "#f4044e"];
+    const ready = this.lobby.length;
 
-    const players = Array.from({ length: this.localCount }, (_, i) => {
-      const s = SHIPS[i % SHIPS.length];
-      const ctl = schemes[i] ? schemeLabel(schemes[i]) : "—";
+    const slots = Array.from({ length: 4 }, (_, i) => {
+      const s = this.lobby[i];
+      if (s) {
+        const craft = SHIPS[i % SHIPS.length];
+        return `
+          <div class="vd-lc-player joined">
+            <span class="vd-lc-tag" style="color:${Menu.LC_ACCENTS[i]}">P${i + 1}</span>
+            <span class="vd-lc-craft">${craft.code} <b>${craft.name}</b></span>
+            <span class="vd-lc-ctl">${schemeLabel(s)}</span>
+            <span class="vd-lc-ready">● READY</span>
+          </div>`;
+      }
       return `
-        <div class="vd-lc-player">
-          <span class="vd-lc-tag" style="color:${accents[i]}">P${i + 1}</span>
-          <span class="vd-lc-craft">${s.code} <b>${s.name}</b></span>
-          <span class="vd-lc-ctl">${ctl}</span>
+        <div class="vd-lc-player open">
+          <span class="vd-lc-tag" style="color:rgba(255,255,255,0.3)">P${i + 1}</span>
+          <span class="vd-lc-open">OPEN — press to join</span>
         </div>`;
     }).join("");
-
-    const counts = [2, 3, 4]
-      .map((n) => `<button class="vd-lc-count ${n === this.localCount ? "sel" : ""}" data-n="${n}">${n}P</button>`)
-      .join("");
 
     this.content.innerHTML = `
       <div class="vd-shell">
@@ -465,29 +538,23 @@ export class Menu {
             <span class="vd-badge">${logoMark()}</span>
             <span>
               <span class="vd-brand-name">LOCAL RACE</span>
-              <span class="vd-brand-jp">ローカル対戦</span>
+              <span class="vd-brand-jp">ローカル対戦 · ${this.trackName(this.selectedTrackId)}</span>
             </span>
           </div>
         </header>
 
         <div class="vd-lc-body">
-          <div class="vd-lc-counts"><span class="vd-lc-label">PLAYERS</span>${counts}</div>
-          <div class="vd-lc-players">${players}</div>
-          <p class="vd-lc-hint">Split-screen on this screen · course: ${this.trackName(this.selectedTrackId)}. Gamepads are assigned first, then the keyboard splits into ARROW KEYS + WASD.</p>
+          <div class="vd-lc-players">${slots}</div>
+          <p class="vd-lc-hint">Each player presses to claim a slot: <b>controller A / START</b>, keyboard <b>ENTER</b> (arrows) or <b>RIGHT-SHIFT</b> (WASD). Press <b>B</b> to leave. ${ready >= 2 ? "Press <b>START</b> / <b>SPACE</b> to race." : "Need at least 2 players."}</p>
         </div>
 
         <footer class="vd-botbar">
           <button class="vd-act back-act"><span class="ring">✕</span> BACK</button>
-          <button class="vd-act start-local"><span class="ring">▶</span> START</button>
+          <button class="vd-act start-local ${ready >= 2 ? "" : "disabled"}"><span class="ring">▶</span> START (${ready})</button>
         </footer>
       </div>`;
 
-    this.content.querySelectorAll<HTMLButtonElement>(".vd-lc-count").forEach((b) => {
-      b.addEventListener("click", () => this.setLocalCount(parseInt(b.dataset.n!, 10)));
-    });
-    this.content
-      .querySelector<HTMLButtonElement>(".start-local")!
-      .addEventListener("click", () => this.onStartLocal(this.localCount, this.selectedTrackId));
+    this.content.querySelector<HTMLButtonElement>(".start-local")!.addEventListener("click", () => this.beginLocal());
     this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("mp"));
   }
 
@@ -767,6 +834,10 @@ export class Menu {
   }
 
   private goto(screen: Screen): void {
+    if (screen === "local") {
+      this.lobby = [];
+      this.padPrev.clear();
+    }
     this.screen = screen;
     this.render();
   }
