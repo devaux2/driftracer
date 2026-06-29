@@ -1746,20 +1746,6 @@
   background: rgba(215, 255, 55, 0.08);
   box-shadow: 0 0 14px rgba(215, 255, 55, 0.25);
 }
-.vd-mus-kind {
-  flex: 0 0 5em;
-  text-align: center;
-  font-size: clamp(0.55rem, 1.1vh, 0.72rem);
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  padding: 0.4vh 0;
-  border: 1px solid currentColor;
-  border-radius: 2px;
-}
-.vd-mus-kind.k-menu { color: #7fd4ff; }
-.vd-mus-kind.k-aggro { color: var(--vd-pink); }
-.vd-mus-kind.k-chill { color: var(--vd-lime); }
 .vd-mus-meta {
   flex: 1;
   min-width: 0;

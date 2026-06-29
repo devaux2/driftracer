@@ -252,10 +252,10 @@ export class Menu {
     });
   }
 
-  /** Modes shown on this device (multiplayer is desktop-only for now — local
-   * split-screen needs a big screen and online isn't built yet). */
+  /** Top-level modes (all shown — split-screen works wherever there's a
+   * keyboard/gamepad, and `isTouchDevice` over-reports on touchscreen laptops). */
   private visibleModes(): GameMode[] {
-    return MODES.filter((m) => !(m.id === "mp" && this.isTouchDevice));
+    return MODES;
   }
 
   /** IDs the cursor can land on (playable rows, incl. Garage). */

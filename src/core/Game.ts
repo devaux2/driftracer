@@ -364,7 +364,6 @@ export class Game {
   /** Start a local split-screen race for `count` players (2-4). Single-player
    * state is left untouched; this drives a parallel N-player path. */
   private startLocalRace(count: number, trackId?: string): void {
-    if (this.input.isTouchDevice) return; // split-screen is desktop-only
     count = Math.max(2, Math.min(4, count));
     if (trackId && this.track.spec.id !== trackId) this.loadTrackSpec(getTrackById(trackId));
 
