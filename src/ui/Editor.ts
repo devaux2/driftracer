@@ -1,4 +1,4 @@
-import type { TrackSpec, PadSpec } from "../config/tracks";
+import type { TrackSpec, PadSpec, ControlPoint } from "../config/tracks";
 import { baseSpec, cloneSpec, loadCustomTrack, saveCustomTrack } from "../track/customTrack";
 import { EditorPreview3D } from "./EditorPreview3D";
 
@@ -37,6 +37,8 @@ export class Editor {
   /** Snap point positions to a grid while dragging/placing. */
   private snap = false;
   private static readonly SNAP = 20;
+  /** Inclusive index range selected for section copy/mirror (shift-click). */
+  private selRange: { a: number; b: number } | null = null;
 
   // world→screen transform (recomputed each render to keep the track in view)
   private scale = 1;
@@ -116,6 +118,7 @@ export class Editor {
     this.spec = loadCustomTrack() ?? baseSpec();
     this.tool = "select";
     this.sel = null;
+    this.selRange = null;
     this.history = [];
     this.redoStack = [];
     this.root.style.display = "";
@@ -245,6 +248,14 @@ export class Editor {
     return this.snap ? Math.round(v / Editor.SNAP) * Editor.SNAP : Math.round(v);
   }
 
+  /** Dense copy of a control point (keeps bank/width without widening). */
+  private clonePoint(q: ControlPoint): ControlPoint {
+    const c: number[] = [q[0], q[1], q[2]];
+    if (q[3] !== undefined || q[4] !== undefined) c[3] = q[3] ?? 0;
+    if (q[4] !== undefined) c[4] = q[4];
+    return c as ControlPoint;
+  }
+
   /** Approximate track length (km) from the smoothed centre-line. */
   private trackKm(): string {
     const pts = this.sampleLoop(10);
@@ -324,6 +335,89 @@ export class Editor {
     this.preview3d.setSpec(this.spec);
   }
 
+  /** Laplacian smoothing: ease every point toward the midpoint of its
+   * neighbours so a hand-drawn loop flows into smooth racing curves. */
+  private smoothPath(): void {
+    this.pushHistory();
+    const p = this.spec.points;
+    const n = p.length;
+    const orig = p.map((q) => this.clonePoint(q));
+    for (let i = 0; i < n; i++) {
+      const a = orig[(i - 1 + n) % n];
+      const b = orig[(i + 1) % n];
+      const o = orig[i];
+      p[i][0] = Math.round((o[0] + (a[0] + b[0]) / 2) / 2);
+      p[i][1] = Math.round((o[1] + (a[1] + b[1]) / 2) / 2);
+      p[i][2] = Math.round((o[2] + (a[2] + b[2]) / 2) / 2);
+    }
+    this.renderPanel();
+    this.draw();
+  }
+
+  /** Pull the selected point onto the straight line between its neighbours. */
+  private straightenPoint(): void {
+    if (this.sel?.type !== "point") return;
+    this.pushHistory();
+    const p = this.spec.points;
+    const n = p.length;
+    const i = this.sel.index;
+    const a = p[(i - 1 + n) % n];
+    const b = p[(i + 1) % n];
+    p[i][0] = Math.round((a[0] + b[0]) / 2);
+    p[i][1] = Math.round((a[1] + b[1]) / 2);
+    p[i][2] = Math.round((a[2] + b[2]) / 2);
+    this.renderPanel();
+    this.draw();
+  }
+
+  /** Duplicate the selected section (points a..b), offset, appended after it. */
+  private copySection(): void {
+    if (!this.selRange) return;
+    this.pushHistory();
+    const { a, b } = this.selRange;
+    const span = this.spec.points.slice(a, b + 1).map((q) => {
+      const c = this.clonePoint(q);
+      c[0] += 60;
+      c[2] += 60;
+      return c;
+    });
+    this.spec.points.splice(b + 1, 0, ...span);
+    this.selRange = null;
+    this.sel = null;
+    this.renderPanel();
+    this.draw();
+  }
+
+  /** Mirror the selected section across its chord and append it reversed, for
+   * fast symmetric shapes (out-and-back loops, twin hairpins). */
+  private mirrorSection(): void {
+    if (!this.selRange) return;
+    this.pushHistory();
+    const pts = this.spec.points;
+    const { a, b } = this.selRange;
+    const A = pts[a];
+    const B = pts[b];
+    const dx = B[0] - A[0];
+    const dz = B[2] - A[2];
+    const len2 = dx * dx + dz * dz || 1;
+    const reflect = (q: (typeof pts)[number]): (typeof pts)[number] => {
+      const t = ((q[0] - A[0]) * dx + (q[2] - A[2]) * dz) / len2;
+      const px = A[0] + t * dx;
+      const pz = A[2] + t * dz;
+      const c = [Math.round(2 * px - q[0]), q[1], Math.round(2 * pz - q[2])];
+      if (q[3] !== undefined || q[4] !== undefined) c[3] = -(q[3] ?? 0); // bank flips
+      if (q[4] !== undefined) c[4] = q[4];
+      return c as (typeof pts)[number];
+    };
+    // reflected interior, reversed, inserted after b (endpoints already exist)
+    const interior = pts.slice(a + 1, b).reverse().map(reflect);
+    pts.splice(b + 1, 0, ...interior);
+    this.selRange = null;
+    this.sel = null;
+    this.renderPanel();
+    this.draw();
+  }
+
   // ---- undo / redo ---------------------------------------------------------
 
   private pushHistory(): void {
@@ -337,6 +431,7 @@ export class Editor {
     this.redoStack.push(cloneSpec(this.spec));
     this.spec = prev;
     this.sel = null;
+    this.selRange = null;
     this.renderPanel();
     this.draw();
   }
@@ -346,6 +441,7 @@ export class Editor {
     this.history.push(cloneSpec(this.spec));
     this.spec = next;
     this.sel = null;
+    this.selRange = null;
     this.renderPanel();
     this.draw();
   }
@@ -604,10 +700,17 @@ export class Editor {
       // select tool: points take priority, then pads. Both are draggable.
       const pi = hitPoint(sx, sy);
       if (pi >= 0) {
-        this.sel = { type: "point", index: pi };
-        this.dragging = true;
-        this.canvas.setPointerCapture(e.pointerId);
+        if (e.shiftKey && this.sel?.type === "point" && this.sel.index !== pi) {
+          // shift-click a second point → select the section between them
+          this.selRange = { a: Math.min(this.sel.index, pi), b: Math.max(this.sel.index, pi) };
+        } else {
+          this.selRange = null;
+          this.sel = { type: "point", index: pi };
+          this.dragging = true;
+          this.canvas.setPointerCapture(e.pointerId);
+        }
       } else {
+        this.selRange = null;
         const di = hitPad(sx, sy);
         this.sel = di >= 0 ? { type: "pad", index: di } : null;
         if (di >= 0) {
@@ -690,6 +793,7 @@ export class Editor {
       this.spec.pads.splice(this.sel.index, 1);
     }
     this.sel = null;
+    this.selRange = null;
     this.renderPanel();
     this.draw();
   }
@@ -699,6 +803,17 @@ export class Editor {
   private renderPanel(): void {
     const toolBtn = (id: Tool, label: string) =>
       `<button class="vd-ed-tool ${this.tool === id ? "on" : ""}" data-tool="${id}">${label}</button>`;
+
+    const sectionHtml = this.selRange
+      ? `
+        <div class="vd-ed-sel">
+          <div class="vd-ed-row"><span>SECTION ${this.selRange.a}–${this.selRange.b}</span></div>
+          <div class="vd-ed-row2">
+            <button class="vd-ed-copysec">⧉ COPY</button>
+            <button class="vd-ed-mirrorsec">⇋ MIRROR</button>
+          </div>
+        </div>`
+      : "";
 
     let selHtml = `<p class="vd-ed-hint">Select a point or pad to edit it.</p>`;
     if (this.sel?.type === "point") {
@@ -743,9 +858,14 @@ export class Editor {
         <button class="vd-ed-snap ${this.snap ? "on" : ""}">▦ SNAP ${this.snap ? "ON" : "OFF"}</button>
         <button class="vd-ed-recenter">⟲ RECENTER 3D</button>
       </div>
+      <div class="vd-ed-tools2">
+        <button class="vd-ed-smooth">∿ SMOOTH</button>
+        <button class="vd-ed-straighten">— STRAIGHTEN</button>
+      </div>
       <div class="vd-ed-len">LENGTH <b>${this.trackKm()} KM</b> · ${this.spec.points.length} PTS</div>
-      <p class="vd-ed-keys">P add point · B boost · J jump · V select · Del remove · Ctrl+Z undo · arrows nudge</p>
+      <p class="vd-ed-keys">P add point · B boost · J jump · V select · Del remove · Ctrl+Z undo · arrows nudge · shift-click 2 points = section</p>
       ${selHtml}
+      ${sectionHtml}
       <div class="vd-ed-actions">
         <button class="vd-ed-test start-btn">▶ TEST DRIVE</button>
         <div class="vd-ed-actions-row">
@@ -804,6 +924,10 @@ export class Editor {
     this.panel.querySelector(".vd-ed-autobank")!.addEventListener("click", () => this.autoBank());
     this.panel.querySelector(".vd-ed-flatten")!.addEventListener("click", () => this.flattenBank());
     this.panel.querySelector(".vd-ed-recenter")!.addEventListener("click", () => this.recenter3d());
+    this.panel.querySelector(".vd-ed-smooth")!.addEventListener("click", () => this.smoothPath());
+    this.panel.querySelector(".vd-ed-straighten")!.addEventListener("click", () => this.straightenPoint());
+    this.panel.querySelector(".vd-ed-copysec")?.addEventListener("click", () => this.copySection());
+    this.panel.querySelector(".vd-ed-mirrorsec")?.addEventListener("click", () => this.mirrorSection());
     this.panel.querySelector(".vd-ed-snap")!.addEventListener("click", () => {
       this.snap = !this.snap;
       this.renderPanel();
