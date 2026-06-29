@@ -49,6 +49,12 @@ export class Editor {
   private dragging = false;
   private vDragging = false;
 
+  // press-and-hold radial menu on the 2D plan (quick add jump / boost / point)
+  private wheel!: HTMLDivElement;
+  private holdTimer: number | null = null;
+  private holdWorld: Pt | null = null;
+  private holdClient = { x: 0, y: 0 };
+
   private fileInput: HTMLInputElement;
 
   constructor(
@@ -96,7 +102,16 @@ export class Editor {
     this.fileInput.style.display = "none";
     this.fileInput.addEventListener("change", () => void this.handleImport());
 
-    this.root.append(main, this.panel, this.fileInput);
+    // Press-and-hold radial menu (built once, positioned/shown on demand).
+    this.wheel = document.createElement("div");
+    this.wheel.className = "vd-ed-wheel";
+    this.wheel.style.display = "none";
+    this.wheel.innerHTML = `
+      <button class="vd-ed-wheel-btn" data-kind="point">＋ POINT</button>
+      <button class="vd-ed-wheel-btn" data-kind="boost">● BOOST</button>
+      <button class="vd-ed-wheel-btn" data-kind="jump">▲ JUMP</button>`;
+
+    this.root.append(main, this.panel, this.fileInput, this.wheel);
     container.appendChild(this.root);
     this.ctx = this.canvas.getContext("2d")!;
     this.sideCtx = this.side.getContext("2d")!;
@@ -119,9 +134,21 @@ export class Editor {
 
     this.bindCanvas();
     this.bindSide();
+    this.bindWheel();
     window.addEventListener("resize", () => {
       if (this.root.style.display !== "none") this.resize();
     });
+    // A plain resize listener misses fullscreen transitions where the element
+    // box changes without a window resize event firing in time — which left the
+    // 2D canvas sized to a stale box (it looked frozen until you toggled
+    // fullscreen to force a resize). Observe the actual box so it always
+    // re-fits, whatever triggered the change.
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(() => {
+        if (this.root.style.display !== "none") this.resize();
+      });
+      ro.observe(this.root);
+    }
     window.addEventListener("keydown", (e) => this.onKey(e));
     // End a nudge burst so each arrow-key gesture is one undo step.
     window.addEventListener("keyup", (e) => {
@@ -750,13 +777,45 @@ export class Editor {
         if (di >= 0) {
           this.dragging = true;
           this.canvas.setPointerCapture(e.pointerId);
+        } else if (this.tool === "select") {
+          // empty road: arm the press-and-hold radial menu (quick add).
+          this.armHold(world, e.clientX, e.clientY);
         }
       }
       this.renderPanel();
       this.draw();
     });
 
+    // Double-click to iterate fast: on a point → delete it; on empty road → add
+    // a point there. (Select tool only, so it never fights the pad-place tools.)
+    this.canvas.addEventListener("dblclick", (e) => {
+      if (this.tool !== "select") return;
+      this.clearHold();
+      const rect = this.canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const pi = hitPoint(sx, sy);
+      if (pi >= 0) {
+        if (this.spec.points.length > 4) {
+          this.pushHistory();
+          this.spec.points.splice(pi, 1);
+          this.sel = null;
+          this.selRange = null;
+          this.renderPanel();
+          this.draw();
+        }
+      } else {
+        this.insertPoint(this.toWorld(sx, sy));
+      }
+    });
+
     this.canvas.addEventListener("pointermove", (e) => {
+      // Moving past a small threshold cancels a pending press-and-hold.
+      if (this.holdTimer !== null) {
+        const dx = e.clientX - this.holdClient.x;
+        const dy = e.clientY - this.holdClient.y;
+        if (dx * dx + dy * dy > 36) this.clearHold();
+      }
       if (!this.dragging || !this.sel) return;
       if (!this.gestureSaved) {
         this.pushHistory();
@@ -779,6 +838,7 @@ export class Editor {
     });
 
     const endDrag = (e: PointerEvent) => {
+      this.clearHold();
       if (this.dragging) {
         this.dragging = false;
         this.gestureSaved = false;
@@ -788,6 +848,60 @@ export class Editor {
     };
     this.canvas.addEventListener("pointerup", endDrag);
     this.canvas.addEventListener("pointercancel", endDrag);
+  }
+
+  // ---- press-and-hold radial menu -----------------------------------------
+
+  /** Arm the hold timer; if the press is held still long enough it pops the
+   * radial menu at the cursor for a quick add. */
+  private armHold(world: Pt, clientX: number, clientY: number): void {
+    this.clearHold();
+    this.holdWorld = { x: world.x, z: world.z };
+    this.holdClient = { x: clientX, y: clientY };
+    this.holdTimer = window.setTimeout(() => {
+      this.holdTimer = null;
+      this.openWheel(clientX, clientY);
+    }, 320);
+  }
+
+  private clearHold(): void {
+    if (this.holdTimer !== null) {
+      clearTimeout(this.holdTimer);
+      this.holdTimer = null;
+    }
+  }
+
+  private openWheel(clientX: number, clientY: number): void {
+    const base = this.root.getBoundingClientRect();
+    this.wheel.style.left = `${clientX - base.left}px`;
+    this.wheel.style.top = `${clientY - base.top}px`;
+    this.wheel.style.display = "";
+  }
+
+  private closeWheel(): void {
+    this.wheel.style.display = "none";
+    this.holdWorld = null;
+  }
+
+  private bindWheel(): void {
+    this.wheel.querySelectorAll<HTMLButtonElement>(".vd-ed-wheel-btn").forEach((b) => {
+      b.addEventListener("click", () => {
+        const kind = b.dataset.kind as "point" | "boost" | "jump";
+        const w = this.holdWorld;
+        this.closeWheel();
+        if (!w) return;
+        if (kind === "point") this.insertPoint(w);
+        else this.addPad(kind, w);
+        this.renderPanel();
+        this.draw();
+      });
+    });
+    // Click anywhere else dismisses the wheel.
+    window.addEventListener("pointerdown", (e) => {
+      if (this.wheel.style.display !== "none" && !this.wheel.contains(e.target as Node)) {
+        this.closeWheel();
+      }
+    });
   }
 
   private insertPoint(world: Pt): void {

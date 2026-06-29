@@ -2139,3 +2139,41 @@
   color: var(--vd-black);
   box-shadow: 0 0 18px rgba(0, 215, 242, 0.5);
 }
+
+/* editor press-and-hold radial menu (quick add point / boost / jump) */
+.vd-ed-wheel {
+  position: absolute;
+  z-index: 60;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  background: rgba(8, 9, 14, 0.94);
+  border: 1px solid var(--vd-pink);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 18px rgba(244, 4, 78, 0.3);
+  animation: vd-wheel-in 0.12s ease-out both;
+}
+@keyframes vd-wheel-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.vd-ed-wheel-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-family: var(--vd-display);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-size: 0.82rem;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, border-color 0.1s;
+}
+.vd-ed-wheel-btn:hover {
+  background: var(--vd-pink);
+  border-color: var(--vd-pink);
+  color: #fff;
+}
