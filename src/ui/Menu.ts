@@ -169,6 +169,15 @@ export class Menu {
       <span class="vd-plus vd-p4">+</span>`;
   }
 
+  /** The vertical edge rails + corner accent the main menu carries, so the
+   * submenu screens read as intentionally airy rather than empty. */
+  private edgeRails(left: string): string {
+    return `
+      <span class="vd-side-label" style="top:30vh;left:1.6vh">${left}</span>
+      <span class="vd-side-label" style="top:30vh;right:1.6vh">VECTOR DRIFT SYSTEM</span>
+      <div class="vd-corner tl"></div>`;
+  }
+
   // ---- main: game modes ----------------------------------------------------
 
   /** Compact segmented stat bars (shared by garage + desktop hero info). */
@@ -378,6 +387,7 @@ export class Menu {
     this.content.innerHTML = `
       <div class="vd-shell">
         ${this.plusMarks()}
+        ${this.edgeRails("SELECT MODE")}
         <header class="vd-topbar">
           <div class="vd-brand vd-brand--garage">
             <span class="vd-badge">${logoMark()}</span>
@@ -418,6 +428,7 @@ export class Menu {
     this.content.innerHTML = `
       <div class="vd-shell">
         ${this.plusMarks()}
+        ${this.edgeRails("SELECT MODE")}
         <header class="vd-topbar">
           <div class="vd-brand vd-brand--garage">
             <span class="vd-badge">${logoMark()}</span>
@@ -573,6 +584,7 @@ export class Menu {
     this.content.innerHTML = `
       <div class="vd-shell">
         ${this.plusMarks()}
+        ${this.edgeRails("ASSIGN PLAYERS")}
         <header class="vd-topbar">
           <div class="vd-brand vd-brand--garage">
             <span class="vd-badge">${logoMark()}</span>
@@ -714,6 +726,7 @@ export class Menu {
     this.content.innerHTML = `
       <div class="vd-shell">
         ${this.plusMarks()}
+        ${this.edgeRails("CHOOSE COURSE")}
         <header class="vd-topbar">
           <div class="vd-brand vd-brand--garage">
             <span class="vd-badge">${logoMark()}</span>

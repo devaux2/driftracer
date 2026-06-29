@@ -1731,6 +1731,10 @@
   flex-direction: column;
   gap: 0.7vh;
   padding-right: 0.6vh;
+  padding-bottom: 1.4vh;
+  /* fade the scroll edges so partial rows read as "more below" not "clipped" */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 2.4vh, #000 calc(100% - 2.8vh), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 2.4vh, #000 calc(100% - 2.8vh), transparent 100%);
 }
 .vd-mus-row {
   display: flex;
