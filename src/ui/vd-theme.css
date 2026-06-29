@@ -2055,3 +2055,9 @@
   max-width: 52vw;
 }
 .vd-mp-body .vd-mode { width: 100%; }
+
+/* music screen — master volume controls */
+.vd-mus-vol { display: flex; flex-wrap: wrap; gap: 1vh 3vh; align-items: center; margin: 0.4vh 0 0.2vh; }
+.vd-mus-vol label { display: flex; align-items: center; gap: 1vh; font-size: clamp(0.66rem, 1.5vh, 0.9rem); letter-spacing: 0.12em; color: rgba(255, 255, 255, 0.7); }
+.vd-mus-vol input[type="range"] { width: clamp(120px, 16vw, 240px); accent-color: var(--vd-pink); }
+.vd-mus-vol b { color: var(--vd-lime); min-width: 2.2em; text-align: right; }

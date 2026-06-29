@@ -5,7 +5,7 @@ import { ShipPreview } from "./ShipPreview";
 import type { AudioManager, Pool } from "../audio/AudioManager";
 import { assignSchemes, schemeLabel } from "../input/PlayerInput";
 
-type Screen = "main" | "garage" | "tracks" | "music" | "local" | "mp";
+type Screen = "main" | "garage" | "tracks" | "music" | "local" | "mp" | "solo";
 
 interface GameMode {
   id: string;
@@ -16,15 +16,21 @@ interface GameMode {
   playable: boolean;
 }
 
+/** Condensed top-level menu. SOLO + MULTIPLAYER open submenus. */
 const MODES: GameMode[] = [
-  { id: "quick", name: "QUICK RACE", jp: "クイックレース", icon: ICONS.quick, playable: true },
-  { id: "time", name: "TIME ATTACK", jp: "タイムアタック", icon: ICONS.time, playable: true },
-  { id: "tracks", name: "SELECT TRACK", jp: "コース選択", icon: ICONS.track, playable: true },
-  { id: "gp", name: "GRAND PRIX", jp: "グランプリ", icon: ICONS.gp, playable: false },
+  { id: "solo", name: "SOLO", jp: "ソロ", icon: ICONS.quick, playable: true },
   { id: "mp", name: "MULTIPLAYER", jp: "マルチプレイヤー", icon: ICONS.mp, playable: true },
   { id: "garage", name: "GARAGE", jp: "ガレージ", icon: ICONS.garage, playable: true },
   { id: "editor", name: "TRACK EDITOR", jp: "エディター", icon: ICONS.editor, playable: true },
   { id: "music", name: "MUSIC", jp: "ミュージック", icon: ICONS.music, playable: true },
+];
+
+/** Solo submenu modes. */
+const SOLO_MODES: GameMode[] = [
+  { id: "quick", name: "QUICK RACE", jp: "クイックレース", icon: ICONS.quick, playable: true },
+  { id: "time", name: "TIME ATTACK", jp: "タイムアタック", icon: ICONS.time, playable: true },
+  { id: "tracks", name: "SELECT TRACK", jp: "コース選択", icon: ICONS.track, playable: true },
+  { id: "gp", name: "GRAND PRIX", jp: "グランプリ", icon: ICONS.gp, playable: false },
 ];
 
 function hex(c: ShipSpec): string {
@@ -50,7 +56,9 @@ export class Menu {
   private selectedShipId = SHIPS[0].id;
   private selectedTrackId = TRACKS[0].id;
   /** Currently focused main-menu row (keyboard/gamepad cursor). */
-  private focus = "quick";
+  private focus = "solo";
+  /** Cursor on the SOLO submenu (index into SOLO_MODES). */
+  private soloFocus = 0;
   private useGyro = false;
   /** Gamepad cursor on the music screen (0 = skip button, 1.. = track rows). */
   private musicFocus = 0;
@@ -94,7 +102,8 @@ export class Menu {
     else if (this.screen === "tracks") this.renderTracks();
     else if (this.screen === "music") this.renderMusic();
     else if (this.screen === "local") this.renderLocal();
-    else this.renderMp();
+    else if (this.screen === "mp") this.renderMp();
+    else this.renderSolo();
     // Main menu is a live autopilot flythrough; garage/tracks spin the model.
     this.preview.setMode(this.screen === "main" ? "drive" : "showcase");
     this.preview.setShip(getShipById(this.selectedShipId));
@@ -261,32 +270,28 @@ export class Menu {
     this.activate(id);
   }
 
-  /** Act on a row: open the garage/editor, or start a playable mode. */
+  /** Act on a top-level row: open the matching submenu / garage / editor. */
   private activate(id: string): void {
-    if (id === "garage") {
-      this.goto("garage");
-      return;
-    }
-    if (id === "editor") {
-      this.onEditor();
-      return;
-    }
-    if (id === "tracks") {
-      this.goto("tracks");
-      return;
-    }
-    if (id === "music") {
-      this.musicFocus = 0;
-      this.goto("music");
-      return;
-    }
-    if (id === "mp") {
+    if (id === "solo") {
+      this.soloFocus = 0;
+      this.goto("solo");
+    } else if (id === "mp") {
       this.mpFocus = 0;
       this.goto("mp");
-      return;
+    } else if (id === "garage") {
+      this.goto("garage");
+    } else if (id === "editor") {
+      this.onEditor();
+    } else if (id === "music") {
+      this.musicFocus = 0;
+      this.goto("music");
     }
-    const mode = MODES.find((m) => m.id === id);
-    if (mode?.playable) {
+  }
+
+  /** Act on a SOLO submenu row: start a race, pick a track, or ignore SOON. */
+  private soloActivate(id: string): void {
+    if (id === "tracks") this.goto("tracks");
+    else if (id === "quick" || id === "time") {
       this.onStart(getShipById(this.selectedShipId), id, this.useGyro, this.selectedTrackId);
     }
   }
@@ -309,10 +314,21 @@ export class Menu {
       if (nav.left) this.cycle(-1);
       if (nav.right) this.cycle(1);
       if (nav.confirm || nav.back) this.goto("main");
+    } else if (this.screen === "solo") {
+      if (nav.up) {
+        this.soloFocus = (this.soloFocus - 1 + SOLO_MODES.length) % SOLO_MODES.length;
+        this.renderSolo();
+      }
+      if (nav.down) {
+        this.soloFocus = (this.soloFocus + 1) % SOLO_MODES.length;
+        this.renderSolo();
+      }
+      if (nav.confirm) this.soloActivate(SOLO_MODES[this.soloFocus].id);
+      if (nav.back) this.goto("main");
     } else if (this.screen === "tracks") {
       if (nav.left) this.cycleTrack(-1);
       if (nav.right) this.cycleTrack(1);
-      if (nav.confirm || nav.back) this.goto("main");
+      if (nav.confirm || nav.back) this.goto("solo");
     } else if (this.screen === "mp") {
       if (nav.up || nav.down) {
         this.mpFocus = this.mpFocus === 0 ? 1 : 0;
@@ -328,6 +344,49 @@ export class Menu {
     } else {
       this.handleMusicPad(nav);
     }
+  }
+
+  // ---- solo submenu --------------------------------------------------------
+
+  private renderSolo(): void {
+    this.root.className = "vd-menu overlay vd-screen-solo";
+    const rows = SOLO_MODES.map((m, i) => {
+      const sub = m.id === "tracks" ? `${m.jp} · ${this.trackName(this.selectedTrackId)}` : m.jp;
+      return `
+        <button class="vd-mode ${this.soloFocus === i ? "sel" : ""} ${m.playable ? "" : "soon"}" data-solo="${m.id}">
+          <span class="vd-ic">${m.icon}</span>
+          <span>
+            <span class="vd-mode-name">${m.name}</span>
+            <span class="vd-mode-jp">${sub}</span>
+          </span>
+          ${m.playable ? "" : `<span class="soon-tag">SOON</span>`}
+        </button>`;
+    }).join("");
+
+    this.content.innerHTML = `
+      <div class="vd-shell">
+        ${this.plusMarks()}
+        <header class="vd-topbar">
+          <div class="vd-brand vd-brand--garage">
+            <span class="vd-badge">${logoMark()}</span>
+            <span>
+              <span class="vd-brand-name">SOLO</span>
+              <span class="vd-brand-jp">ソロ</span>
+            </span>
+          </div>
+        </header>
+
+        <div class="vd-mp-body">${rows}</div>
+
+        <footer class="vd-botbar">
+          <button class="vd-act back-act"><span class="ring">✕</span> BACK</button>
+        </footer>
+      </div>`;
+
+    this.content.querySelectorAll<HTMLButtonElement>(".vd-mode").forEach((b) => {
+      b.addEventListener("click", () => this.soloActivate(b.dataset.solo!));
+    });
+    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
   }
 
   // ---- multiplayer submenu -------------------------------------------------
@@ -569,11 +628,11 @@ export class Menu {
     this.content.querySelectorAll<HTMLButtonElement>(".vd-track-card").forEach((btn) => {
       btn.addEventListener("click", () => {
         this.selectedTrackId = btn.dataset.id!;
-        this.goto("main");
+        this.goto("solo");
       });
     });
-    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
-    this.content.querySelector<HTMLButtonElement>(".select-act")!.addEventListener("click", () => this.goto("main"));
+    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("solo"));
+    this.content.querySelector<HTMLButtonElement>(".select-act")!.addEventListener("click", () => this.goto("solo"));
   }
 
   private cycleTrack(dir: number): void {
@@ -623,6 +682,10 @@ export class Menu {
           </div>
         </header>
 
+        <div class="vd-mus-vol">
+          <label>MUSIC <input type="range" class="vd-musvol" min="0" max="1" step="0.05" value="${this.audio.musicVolume}"><b class="vd-musvol-v">${Math.round(this.audio.musicVolume * 100)}</b></label>
+          <label>GAME AUDIO <input type="range" class="vd-sfxvol" min="0" max="1" step="0.05" value="${this.audio.sfxVolume}"><b class="vd-sfxvol-v">${Math.round(this.audio.sfxVolume * 100)}</b></label>
+        </div>
         <p class="vd-mus-hint">Choose which tracks play in the MENU pool and the RACE pool. Disabled tracks are skipped in that context.</p>
         <div class="vd-mus-list">${rows}</div>
 
@@ -643,6 +706,20 @@ export class Menu {
     this.content.querySelector<HTMLButtonElement>(".vd-mus-skip")!.addEventListener("click", () => {
       this.audio.skip();
       this.refreshNowPlaying();
+    });
+    const mv = this.content.querySelector<HTMLInputElement>(".vd-musvol");
+    mv?.addEventListener("input", () => {
+      const v = parseFloat(mv.value);
+      this.audio.setMusicVolume(v);
+      const b = this.content.querySelector(".vd-musvol-v");
+      if (b) b.textContent = String(Math.round(v * 100));
+    });
+    const sv = this.content.querySelector<HTMLInputElement>(".vd-sfxvol");
+    sv?.addEventListener("input", () => {
+      const v = parseFloat(sv.value);
+      this.audio.setSfxVolume(v);
+      const b = this.content.querySelector(".vd-sfxvol-v");
+      if (b) b.textContent = String(Math.round(v * 100));
     });
     this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
   }
