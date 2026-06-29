@@ -2014,3 +2014,33 @@
 @media (max-height: 600px) {
   .vd-ed-3d-wrap { display: none; }
 }
+
+/* track editor — usability tools (auto-bank / snap / recenter / coords) */
+.vd-ed-tools2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6vh; }
+.vd-ed-tools2 button {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-family: var(--vd-display);
+  letter-spacing: 0.04em;
+  padding: 0.8vh 0.4vw;
+  cursor: pointer;
+  font-size: clamp(0.64rem, 1.6vh, 0.85rem);
+}
+.vd-ed-tools2 .vd-ed-autobank { border-color: rgba(216, 246, 0, 0.55); color: var(--vd-lime); }
+.vd-ed-tools2 .vd-ed-snap.on { border-color: var(--vd-cyan); color: var(--vd-cyan); background: rgba(0, 215, 242, 0.12); }
+.vd-ed-len { font-size: clamp(0.64rem, 1.5vh, 0.85rem); letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.55); }
+.vd-ed-len b { color: var(--vd-lime); }
+.vd-ed-coords { font-size: clamp(0.6rem, 1.4vh, 0.8rem); letter-spacing: 0.06em; color: rgba(0, 215, 242, 0.8); }
+.vd-ed-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5vw; }
+.vd-ed-row2 button {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-family: var(--vd-display);
+  letter-spacing: 0.08em;
+  padding: 0.6vh 0;
+  cursor: pointer;
+  font-size: clamp(0.66rem, 1.5vh, 0.82rem);
+}
+.vd-ed-row2 .vd-ed-del { border-color: var(--vd-pink); color: var(--vd-pink); }

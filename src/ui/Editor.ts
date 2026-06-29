@@ -34,6 +34,9 @@ export class Editor {
   private redoStack: TrackSpec[] = [];
   /** Set once per drag gesture so we only snapshot the pre-drag state. */
   private gestureSaved = false;
+  /** Snap point positions to a grid while dragging/placing. */
+  private snap = false;
+  private static readonly SNAP = 20;
 
   // world→screen transform (recomputed each render to keep the track in view)
   private scale = 1;
@@ -101,6 +104,10 @@ export class Editor {
       if (this.root.style.display !== "none") this.resize();
     });
     window.addEventListener("keydown", (e) => this.onKey(e));
+    // End a nudge burst so each arrow-key gesture is one undo step.
+    window.addEventListener("keyup", (e) => {
+      if (this.root.style.display !== "none" && e.key.startsWith("Arrow")) this.gestureSaved = false;
+    });
   }
 
   // ---- lifecycle -----------------------------------------------------------
@@ -230,6 +237,91 @@ export class Editor {
     // keep the live 3D preview + selection marker in sync
     this.preview3d.setSpec(this.spec);
     this.preview3d.setSelection(this.sel?.type === "point" ? this.spec.points[this.sel.index] : null);
+  }
+
+  // ---- usability tools -----------------------------------------------------
+
+  private snapVal(v: number): number {
+    return this.snap ? Math.round(v / Editor.SNAP) * Editor.SNAP : Math.round(v);
+  }
+
+  /** Approximate track length (km) from the smoothed centre-line. */
+  private trackKm(): string {
+    const pts = this.sampleLoop(10);
+    let len = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i];
+      const b = pts[(i + 1) % pts.length];
+      len += Math.hypot(b.x - a.x, b.z - a.z);
+    }
+    return (len / 1000).toFixed(2);
+  }
+
+  /** Auto-bank every section into its turn, proportional to how sharply the
+   * track curves there (straights stay flat). One-click cambered circuit. */
+  private autoBank(): void {
+    this.pushHistory();
+    const p = this.spec.points;
+    const n = p.length;
+    for (let i = 0; i < n; i++) {
+      const prev = p[(i - 1 + n) % n];
+      const cur = p[i];
+      const next = p[(i + 1) % n];
+      const inX = cur[0] - prev[0], inZ = cur[2] - prev[2];
+      const outX = next[0] - cur[0], outZ = next[2] - cur[2];
+      const inLen = Math.hypot(inX, inZ) || 1;
+      const outLen = Math.hypot(outX, outZ) || 1;
+      // signed turn angle (cross gives direction, dot gives magnitude)
+      const cross = (inX / inLen) * (outZ / outLen) - (inZ / inLen) * (outX / outLen);
+      const dot = (inX / inLen) * (outX / outLen) + (inZ / inLen) * (outZ / outLen);
+      const angle = Math.atan2(cross, dot); // radians, + = one way
+      // bank into the turn; cap at 38°, ignore near-straight sections
+      const deg = Math.max(-38, Math.min(38, (angle * 180) / Math.PI * 1.1));
+      cur[3] = Math.abs(deg) < 2 ? 0 : Math.round(deg);
+    }
+    this.renderPanel();
+    this.draw();
+  }
+
+  /** Flatten every section's bank back to 0. */
+  private flattenBank(): void {
+    this.pushHistory();
+    for (const p of this.spec.points) p[3] = 0;
+    this.renderPanel();
+    this.draw();
+  }
+
+  /** Duplicate the selected control point (offset a little) so a section can be
+   * shaped with an extra anchor without redrawing it. */
+  private duplicatePoint(): void {
+    if (this.sel?.type !== "point") return;
+    this.pushHistory();
+    const src = this.spec.points[this.sel.index];
+    const copy = (src[3] ? [src[0] + 24, src[1], src[2] + 24, src[3]] : [src[0] + 24, src[1], src[2] + 24]) as typeof src;
+    this.spec.points.splice(this.sel.index + 1, 0, copy);
+    this.sel = { type: "point", index: this.sel.index + 1 };
+    this.renderPanel();
+    this.draw();
+  }
+
+  /** Nudge the selected control point by a fixed world step (arrow keys). */
+  private nudge(dx: number, dz: number): void {
+    if (this.sel?.type !== "point") return;
+    if (!this.gestureSaved) {
+      this.pushHistory();
+      this.gestureSaved = true;
+    }
+    const p = this.spec.points[this.sel.index];
+    p[0] += dx;
+    p[2] += dz;
+    this.renderPanel();
+    this.draw();
+  }
+
+  /** Re-frame the 3D preview camera on the whole circuit. */
+  private recenter3d(): void {
+    this.preview3d.resetFraming();
+    this.preview3d.setSpec(this.spec);
   }
 
   // ---- undo / redo ---------------------------------------------------------
@@ -537,8 +629,8 @@ export class Editor {
       const world = this.toWorld(e.clientX - rect.left, e.clientY - rect.top);
       if (this.sel.type === "point") {
         const p = this.spec.points[this.sel.index];
-        p[0] = Math.round(world.x);
-        p[2] = Math.round(world.z);
+        p[0] = this.snapVal(world.x);
+        p[2] = this.snapVal(world.z);
       } else {
         // drag the pad anywhere on the road: update both t and lateral offset
         const { t, offset } = this.locate(world);
@@ -570,7 +662,7 @@ export class Editor {
       const d = (p[i][0] - world.x) ** 2 + (p[i][2] - world.z) ** 2;
       if (d < bestD) { bestD = d; best = i; }
     }
-    p.splice(best + 1, 0, [Math.round(world.x), p[best][1], Math.round(world.z)]);
+    p.splice(best + 1, 0, [this.snapVal(world.x), p[best][1], this.snapVal(world.z)]);
     this.sel = { type: "point", index: best + 1 };
     this.tool = "select";
     this.renderPanel();
@@ -614,9 +706,13 @@ export class Editor {
       selHtml = `
         <div class="vd-ed-sel">
           <div class="vd-ed-row"><span>POINT ${this.sel.index}${this.sel.index === 0 ? " (START)" : ""}</span></div>
+          <div class="vd-ed-coords">X ${Math.round(p[0])} · Z ${Math.round(p[2])} · arrows to nudge</div>
           <label>HEIGHT <input type="range" id="ed-h" min="-160" max="160" step="2" value="${p[1]}"><b id="ed-hv">${p[1]}</b></label>
           <label>TILT <input type="range" id="ed-b" min="-45" max="45" step="1" value="${p[3] ?? 0}"><b id="ed-bv">${p[3] ?? 0}°</b></label>
-          <button class="vd-ed-del">DELETE POINT</button>
+          <div class="vd-ed-row2">
+            <button class="vd-ed-dup">⧉ DUPLICATE</button>
+            <button class="vd-ed-del">DELETE</button>
+          </div>
         </div>`;
     } else if (this.sel?.type === "pad") {
       const pad = this.spec.pads[this.sel.index];
@@ -638,7 +734,16 @@ export class Editor {
         ${toolBtn("jump", "▲ Jump")}
       </div>
       <label class="vd-ed-width">ROAD WIDTH <input type="range" id="ed-w" min="20" max="120" step="2" value="${this.spec.roadHalfWidth}"><b id="ed-wv">${this.spec.roadHalfWidth}</b></label>
-      <p class="vd-ed-keys">P add point · B boost · J jump · V select · Del remove · Ctrl+Z undo</p>
+      <div class="vd-ed-tools2">
+        <button class="vd-ed-autobank">⤴ AUTO-BANK</button>
+        <button class="vd-ed-flatten">▭ FLATTEN</button>
+      </div>
+      <div class="vd-ed-tools2">
+        <button class="vd-ed-snap ${this.snap ? "on" : ""}">▦ SNAP ${this.snap ? "ON" : "OFF"}</button>
+        <button class="vd-ed-recenter">⟲ RECENTER 3D</button>
+      </div>
+      <div class="vd-ed-len">LENGTH <b>${this.trackKm()} KM</b> · ${this.spec.points.length} PTS</div>
+      <p class="vd-ed-keys">P add point · B boost · J jump · V select · Del remove · Ctrl+Z undo · arrows nudge</p>
       ${selHtml}
       <div class="vd-ed-actions">
         <button class="vd-ed-test start-btn">▶ TEST DRIVE</button>
@@ -684,6 +789,14 @@ export class Editor {
       wire("#ed-p", "#ed-pv", (v) => (this.spec.pads[this.sel!.index].power = v), (v) => v.toFixed(1));
     }
     this.panel.querySelector(".vd-ed-del")?.addEventListener("click", () => this.deleteSelected());
+    this.panel.querySelector(".vd-ed-dup")?.addEventListener("click", () => this.duplicatePoint());
+    this.panel.querySelector(".vd-ed-autobank")!.addEventListener("click", () => this.autoBank());
+    this.panel.querySelector(".vd-ed-flatten")!.addEventListener("click", () => this.flattenBank());
+    this.panel.querySelector(".vd-ed-recenter")!.addEventListener("click", () => this.recenter3d());
+    this.panel.querySelector(".vd-ed-snap")!.addEventListener("click", () => {
+      this.snap = !this.snap;
+      this.renderPanel();
+    });
     this.panel.querySelector(".vd-ed-test")!.addEventListener("click", () => this.onTest(cloneSpec(this.spec)));
     this.panel.querySelector(".vd-ed-save")!.addEventListener("click", () => {
       saveCustomTrack(this.spec);
@@ -729,6 +842,15 @@ export class Editor {
       return;
     }
     if (e.ctrlKey || e.metaKey) return; // leave other Ctrl combos to the browser
+    if (k.startsWith("arrow")) {
+      e.preventDefault();
+      const step = e.shiftKey ? 40 : 8;
+      if (k === "arrowleft") this.nudge(-step, 0);
+      else if (k === "arrowright") this.nudge(step, 0);
+      else if (k === "arrowup") this.nudge(0, step);
+      else if (k === "arrowdown") this.nudge(0, -step);
+      return;
+    }
     if (k === "delete" || k === "backspace") {
       e.preventDefault();
       this.deleteSelected();
