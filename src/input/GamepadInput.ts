@@ -1,5 +1,4 @@
 import type { ControlState, InputSource } from "./types";
-import { isGameCube, readGameCube } from "./gamecube";
 
 /** One-shot UI navigation edges from the pad, for driving menus. */
 export interface UiNav {
@@ -46,13 +45,6 @@ export class GamepadInput implements InputSource {
   private readonly onConnect = (e: GamepadEvent) => {
     this.index = e.gamepad.index;
     this.active = true;
-    // Surface what the browser sees — handy when diagnosing an adapter that
-    // isn't behaving (e.g. a GameCube controller through a USB adapter).
-    const g = e.gamepad;
-    console.info(
-      `[gamepad] connected: "${g.id}" · mapping="${g.mapping || "(none)"}" · ` +
-        `${g.buttons.length} buttons · ${g.axes.length} axes · GameCube=${isGameCube(g)}`
-    );
   };
   private readonly onDisconnect = (e: GamepadEvent) => {
     if (e.gamepad.index === this.index) this.index = null;
@@ -90,30 +82,6 @@ export class GamepadInput implements InputSource {
       this.prevPause = false;
       this.nav = { up: false, down: false, left: false, right: false, confirm: false, back: false };
       this.prevNav = { ...this.nav };
-      return;
-    }
-
-    // GameCube pads come through adapters with a non-standard layout; translate
-    // them through their own profile and run the shared edge logic below.
-    if (isGameCube(pad)) {
-      const gc = readGameCube(pad);
-      this.steer = gc.steer;
-      this.brake = gc.brake;
-      this.boostEdge = gc.boost && !this.prevBoost;
-      this.prevBoost = gc.boost;
-      this.pauseEdge = gc.pause && !this.prevPause;
-      this.prevPause = gc.pause;
-      if (Math.abs(this.steer) > 0.01 || this.brake > 0.01 || gc.boost || gc.pause) this.active = true;
-      const gnow: UiNav = { up: gc.up, down: gc.down, left: gc.left, right: gc.right, confirm: gc.confirm, back: gc.back };
-      this.nav = {
-        up: gnow.up && !this.prevNav.up,
-        down: gnow.down && !this.prevNav.down,
-        left: gnow.left && !this.prevNav.left,
-        right: gnow.right && !this.prevNav.right,
-        confirm: gnow.confirm && !this.prevNav.confirm,
-        back: gnow.back && !this.prevNav.back,
-      };
-      this.prevNav = gnow;
       return;
     }
 

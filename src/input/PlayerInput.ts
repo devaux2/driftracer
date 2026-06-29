@@ -1,5 +1,4 @@
 import type { ControlState } from "./types";
-import { isGameCube, readGameCube } from "./gamecube";
 
 /**
  * A single player's control scheme for local split-screen. Each player owns
@@ -84,14 +83,6 @@ export class PlayerInput {
     if (this.scheme.kind === "gamepad") {
       const pad = (navigator.getGamepads?.() ?? [])[this.scheme.index];
       if (!pad) return;
-      if (isGameCube(pad)) {
-        const gc = readGameCube(pad);
-        out.steer = gc.steer;
-        out.brake = gc.brake;
-        out.boost = gc.boost && !this.boostPrev;
-        this.boostPrev = gc.boost;
-        return;
-      }
       const b = (i: number) => pad.buttons[i]?.value ?? 0;
       const pressed = (i: number) => !!pad.buttons[i]?.pressed;
       let steer = curve(pad.axes[0] ?? 0);

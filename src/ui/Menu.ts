@@ -4,7 +4,6 @@ import { logoMark, ICONS, shipIcon, trackThumb } from "./marks";
 import { ShipPreview } from "./ShipPreview";
 import type { AudioManager, Pool } from "../audio/AudioManager";
 import { schemeLabel, type Scheme } from "../input/PlayerInput";
-import { isGameCube, readGameCube } from "../input/gamecube";
 
 type Screen = "main" | "garage" | "tracks" | "music" | "local" | "mp" | "solo";
 
@@ -538,18 +537,12 @@ export class Menu {
       const pad = pads[i];
       if (!pad) continue;
       const gp: Scheme = { kind: "gamepad", index: i };
-      let a: boolean, b: boolean, start: boolean, left: boolean, right: boolean;
-      if (isGameCube(pad)) {
-        const gc = readGameCube(pad);
-        a = gc.confirm; b = gc.back; start = gc.start; left = gc.left; right = gc.right;
-      } else {
-        const ax = pad.axes[0] ?? 0;
-        a = !!pad.buttons[0]?.pressed;
-        b = !!pad.buttons[1]?.pressed;
-        start = !!pad.buttons[9]?.pressed;
-        left = !!pad.buttons[14]?.pressed || ax < -0.5;
-        right = !!pad.buttons[15]?.pressed || ax > 0.5;
-      }
+      const a = !!pad.buttons[0]?.pressed;
+      const b = !!pad.buttons[1]?.pressed;
+      const start = !!pad.buttons[9]?.pressed;
+      const ax = pad.axes[0] ?? 0;
+      const left = !!pad.buttons[14]?.pressed || ax < -0.5;
+      const right = !!pad.buttons[15]?.pressed || ax > 0.5;
       const prev = this.padPrev.get(i) ?? { a: false, b: false, start: false, left: false, right: false };
       if (a && !prev.a) this.lobbyAdvance(gp);
       if (b && !prev.b) this.lobbyBack(gp);
