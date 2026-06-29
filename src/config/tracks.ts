@@ -21,6 +21,12 @@ export interface PadSpec {
    * turn a pad into a ramp that can clear a gap for a risk shortcut.
    */
   power?: number;
+  /**
+   * Heading the pad points, in degrees relative to the track direction (0 =
+   * straight down the track, + = angled right, - = left). Lets a jump fling you
+   * off-axis across a gap, or a boost kick you into a corner. Omit for straight.
+   */
+  angle?: number;
 }
 
 /** A control point. X/Z position, **Y elevation** (the road follows Y, so

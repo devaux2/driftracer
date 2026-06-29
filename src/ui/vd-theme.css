@@ -2114,3 +2114,28 @@
 @media (prefers-reduced-motion: reduce) {
   .vd-shell.vd-enter, .vd-shell.vd-enter * { animation: none !important; }
 }
+
+/* test-drive: quick return to the editor (top-left, clear of the lap timer) */
+.vd-testdrive-back {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 40;
+  background: rgba(0, 215, 242, 0.14);
+  border: 1px solid var(--vd-cyan);
+  color: var(--vd-cyan);
+  font-family: var(--vd-display);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-size: clamp(0.72rem, 1.7vh, 0.95rem);
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 10px 100%, 0 100%);
+  backdrop-filter: blur(4px);
+  transition: background 0.12s, box-shadow 0.12s;
+}
+.vd-testdrive-back:hover {
+  background: var(--vd-cyan);
+  color: var(--vd-black);
+  box-shadow: 0 0 18px rgba(0, 215, 242, 0.5);
+}

@@ -23,6 +23,8 @@ export interface TrackSample {
   center: Vector3;
   /** Local road half-width here (sections can widen/narrow). */
   halfWidth: number;
+  /** Surface bank (roll) in radians; positive raises the right edge. */
+  bank: number;
 }
 
 export interface Pad {
@@ -231,7 +233,12 @@ export class Track {
       const idx = Math.floor(p.t * this.centers.length) % this.centers.length;
       const c = this.centers[idx];
       const r = this.rolledRight(idx); // sit on the banked surface
-      const f = this.tangents[idx];
+      const t = this.tangents[idx];
+      // Aim the pad off the track direction by its angle (degrees, + = right).
+      const a = ((p.angle ?? 0) * Math.PI) / 180;
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const f = new Vector3(t.x * ca + t.z * sa, t.y, -t.x * sa + t.z * ca).normalize();
       const power = p.power ?? 1;
       const hw = this.halfWidths[idx] ?? this.halfWidth;
       const pos = c
@@ -283,6 +290,7 @@ export class Track {
       forward: this.tangents[i].clone(),
       center: this.centers[i].clone(),
       halfWidth: this.halfWidths[i] ?? this.halfWidth,
+      bank: this.banks[i] ?? 0,
     };
   }
 
@@ -329,6 +337,8 @@ export class Track {
     const hwA = this.halfWidths[bestI] ?? this.halfWidth;
     const hwB = this.halfWidths[(bestI + 1) % n] ?? this.halfWidth;
 
+    const bankB = this.banks[(bestI + 1) % n] ?? 0;
+
     return {
       t: (bestI + bestProj) / n,
       lateral,
@@ -336,6 +346,7 @@ export class Track {
       forward,
       center,
       halfWidth: hwA + (hwB - hwA) * bestProj,
+      bank: bank + (bankB - bank) * bestProj,
     };
   }
 

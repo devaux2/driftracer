@@ -151,6 +151,16 @@ export class Editor {
     this.preview3d.setActive(false);
   }
 
+  /** Re-show the editor after a test drive WITHOUT reloading from storage, so the
+   * in-progress (possibly unsaved) track is preserved. */
+  resume(): void {
+    this.root.style.display = "";
+    this.preview3d.setActive(true);
+    this.preview3d.setSpec(this.spec);
+    this.resize();
+    this.renderPanel();
+  }
+
   private resize(): void {
     const dpr = window.devicePixelRatio || 1;
     for (const [cv, cx] of [
@@ -494,11 +504,18 @@ export class Editor {
       const selected = this.sel?.type === "pad" && this.sel.index === i;
       const color = pad.kind === "boost" ? "#ffcf3d" : "#3dff84";
 
-      // shoot direction = track forward at this pad (screen space)
+      // shoot direction = track forward at this pad, rotated by the pad's angle
+      // (computed in world space then projected, so it matches the real launch).
       const idx = Math.floor(pad.t * np) % np;
-      const sa = this.toScreen(wl[(idx - 1 + np) % np].x, wl[(idx - 1 + np) % np].z);
-      const sb = this.toScreen(wl[(idx + 1) % np].x, wl[(idx + 1) % np].z);
-      let dx = sb.x - sa.x, dy = sb.z - sa.z;
+      const pa = wl[(idx - 1 + np) % np], pb = wl[(idx + 1) % np];
+      let fwx = pb.x - pa.x, fwz = pb.z - pa.z;
+      const fl = Math.hypot(fwx, fwz) || 1;
+      fwx /= fl; fwz /= fl;
+      const a = ((pad.angle ?? 0) * Math.PI) / 180;
+      const ca = Math.cos(a), san = Math.sin(a);
+      const rx = fwx * ca + fwz * san, rz = -fwx * san + fwz * ca;
+      const tip = this.toScreen(wp.x + rx * 30, wp.z + rz * 30);
+      let dx = tip.x - at.x, dy = tip.z - at.z;
       const L = Math.hypot(dx, dy) || 1;
       dx /= L; dy /= L;
       const len = selected ? 30 : 24;
@@ -853,6 +870,7 @@ export class Editor {
         <div class="vd-ed-sel">
           <div class="vd-ed-row"><span>${pad.kind.toUpperCase()} PAD</span></div>
           <label>OFFSET <input type="range" id="ed-o" min="-1" max="1" step="0.05" value="${pad.offset}"><b id="ed-ov">${pad.offset.toFixed(2)}</b></label>
+          <label>ANGLE <input type="range" id="ed-a" min="-75" max="75" step="5" value="${pad.angle ?? 0}"><b id="ed-av">${pad.angle ?? 0}°</b></label>
           ${pad.kind === "jump" ? `<label>POWER <input type="range" id="ed-p" min="0.3" max="3" step="0.1" value="${pad.power ?? 1}"><b id="ed-pv">${(pad.power ?? 1).toFixed(1)}</b></label>` : ""}
           <button class="vd-ed-del">DELETE PAD</button>
         </div>`;
@@ -935,6 +953,7 @@ export class Editor {
     }
     if (this.sel?.type === "pad") {
       wire("#ed-o", "#ed-ov", (v) => (this.spec.pads[this.sel!.index].offset = v), (v) => v.toFixed(2));
+      wire("#ed-a", "#ed-av", (v) => (this.spec.pads[this.sel!.index].angle = v), (v) => `${v}°`);
       wire("#ed-p", "#ed-pv", (v) => (this.spec.pads[this.sel!.index].power = v), (v) => v.toFixed(1));
     }
     this.panel.querySelector(".vd-ed-del")?.addEventListener("click", () => this.deleteSelected());

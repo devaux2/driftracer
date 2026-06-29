@@ -65,6 +65,9 @@ export class Ship {
   private driftSharp = 0;
   /** Visual bank/roll, smoothed. */
   private bank = 0;
+  /** Surface bank (road roll) the hull should align to — set per frame from the
+   * track sample so the craft tilts with banked, winding sections. */
+  private surfaceBankTarget = 0;
   /** Visual pitch (nose up/down), smoothed — follows the road slope on the
    * ground and the trajectory while airborne. */
   private pitch = 0;
@@ -269,6 +272,8 @@ export class Ship {
       // Nose follows the trajectory: up while rising, down while falling.
       const hSpeed = Math.max(8, Math.hypot(this.velocity.x, this.velocity.z));
       this.pitchTarget = -Math.atan2(this.verticalVel, hSpeed);
+      // In the air there's no surface to bank to — ease back toward level.
+      this.surfaceBankTarget = 0;
     } else {
       // Hover: ease onto the surface so the ship hugs hills and dips — and never
       // sink *through* the road when a climb rises faster than the ease can.
@@ -281,6 +286,8 @@ export class Ship {
       const hAhead = track.locate(new Vector3(this.position.x + f.x * d, this.position.y, this.position.z + f.z * d)).height;
       const hBehind = track.locate(new Vector3(this.position.x - f.x * d, this.position.y, this.position.z - f.z * d)).height;
       this.pitchTarget = -Math.atan2(hAhead - hBehind, 2 * d);
+      // Lay the hull onto the banked road surface (positive bank = right up).
+      this.surfaceBankTarget = sample.bank;
     }
 
     // Fell off the course (missed a jump / launched off the side): respawn.
@@ -338,9 +345,10 @@ export class Ship {
   }
 
   private updateVisuals(dt: number): void {
-    // Bank into turns; exaggerate as the drift blends in. Driven by the eased
-    // steer/drift so the hull leans smoothly instead of snapping.
-    const targetBank = -this.steerInput * (0.3 + 0.25 * this.driftAmount);
+    // Lay the hull on the banked road surface, then add a steering lean on top
+    // (exaggerated as the drift blends in) so the craft both hugs the bank and
+    // leans into turns. Eased so it blends smoothly instead of snapping.
+    const targetBank = this.surfaceBankTarget - this.steerInput * (0.3 + 0.25 * this.driftAmount);
     this.bank += (targetBank - this.bank) * Math.min(1, 8 * dt);
     // Ease the hull pitch toward the surface/trajectory slope.
     this.pitch += (this.pitchTarget - this.pitch) * Math.min(1, 8 * dt);
@@ -356,9 +364,17 @@ export class Ship {
 
   // ---- pad / power-up hooks (called by Game) --------------------------------
 
-  /** Boost from a track pad. */
-  applyBoostPad(): void {
+  /** Boost from a track pad. An angled pad (`dir`) also slings your momentum and
+   * heading that way, so a boost can fire you into a corner, not just forward. */
+  applyBoostPad(dir?: Vector3): void {
     this.boostTimer = BOOST_DURATION;
+    if (dir) {
+      const d = new Vector3(dir.x, 0, dir.z).normalize();
+      const speed = Math.hypot(this.velocity.x, this.velocity.z);
+      this.velocity.x = d.x * speed;
+      this.velocity.z = d.z * speed;
+      this.yaw = Math.atan2(d.x, d.z);
+    }
   }
 
   /**
@@ -366,13 +382,18 @@ export class Ship {
    * hang time and distance covered). We also top up forward momentum so a
    * shortcut jump actually carries the ship across a gap — but the player still
    * has to bring enough speed in, and steers in the air to nail the landing.
+   * An angled pad (`dir`) flings you off-axis: the launch follows the pad's
+   * heading and the nose turns to match, so diagonal gap-jumps work.
    */
-  applyJumpPad(power = 1): void {
+  applyJumpPad(power = 1, dir?: Vector3): void {
     if (this.airborne) return;
     this.airborne = true;
     this.verticalVel = JUMP_VELOCITY * power;
 
-    const forward = new Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+    const forward = dir
+      ? new Vector3(dir.x, 0, dir.z).normalize()
+      : new Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+    if (dir) this.yaw = Math.atan2(forward.x, forward.z);
     const vF = Vector3.Dot(this.velocity, forward);
     const target = Math.max(vF, this.stats.maxSpeed * 0.9);
     this.velocity.addInPlace(forward.scale(target - vF));
@@ -402,6 +423,12 @@ export class Ship {
 
   get speedRatio(): number {
     return Math.min(1.2, this.speed / this.stats.maxSpeed);
+  }
+
+  /** Roll (radians) of the banked road surface the hull is currently laid on —
+   * used by the chase camera to tilt the horizon on banked sections. */
+  get surfaceRoll(): number {
+    return this.surfaceBankTarget;
   }
 
   /** 0..1 boost gauge for the HUD: full while a boost is firing, otherwise the

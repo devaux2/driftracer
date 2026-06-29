@@ -15,7 +15,7 @@ export function cloneSpec(spec: TrackSpec): TrackSpec {
       if (p[4] !== undefined) c[4] = p[4];
       return c as ControlPoint;
     }),
-    pads: spec.pads.map((p) => ({ kind: p.kind, t: p.t, offset: p.offset, power: p.power })),
+    pads: spec.pads.map((p) => ({ kind: p.kind, t: p.t, offset: p.offset, power: p.power, angle: p.angle })),
   };
 }
 

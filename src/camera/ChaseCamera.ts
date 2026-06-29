@@ -13,6 +13,11 @@ const YAW_TAU = 0.09;
 const LOOK_DROP = 3.3;
 /** Minimum camera height above the track surface beneath it (anti clip-through). */
 const GROUND_CLEARANCE = 1.6;
+/** How much of the road's surface bank the camera rolls with — a cinematic
+ * horizon tilt on banked sections without being nauseating (0 = none, 1 = full). */
+const ROLL_FACTOR = 0.7;
+/** Time constant (s) for the camera roll easing toward the surface bank. */
+const ROLL_TAU = 0.16;
 
 /**
  * F-Zero-GX-style chase cam: a tight, RIGID offset behind the craft (constant
@@ -30,6 +35,7 @@ export class ChaseCamera {
   private readonly maxFov = 1.04;
 
   private camYaw = 0;
+  private camRoll = 0;
   private initialized = false;
 
   constructor(scene: Scene) {
@@ -76,6 +82,13 @@ export class ChaseCamera {
     const target = ship.position.add(forward.scale(7 + ratio * 2));
     target.y = pos.y - LOOK_DROP;
     this.camera.setTarget(target);
+
+    // Roll the camera with the banked surface so the horizon tilts through
+    // banked, winding sections (cinematic). setTarget zeroes roll, so apply it
+    // after as rotation.z — eased so it blends smoothly into and out of banks.
+    const targetRoll = ship.surfaceRoll * ROLL_FACTOR;
+    this.camRoll += (targetRoll - this.camRoll) * (1 - Math.exp(-dt / ROLL_TAU));
+    this.camera.rotation.z = this.camRoll;
 
     // FOV nudges up with speed for the rush, without shrinking the ship.
     const targetFov = this.baseFov + (this.maxFov - this.baseFov) * Math.min(1, ratio);

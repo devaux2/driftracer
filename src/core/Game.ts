@@ -90,6 +90,10 @@ export class Game {
   private nowPlaying: NowPlaying;
   private pauseMenu: PauseMenu;
   private paused = false;
+  /** True while test-driving a track from the editor, so exits return there
+   * (preserving the in-progress map) instead of going to the main menu. */
+  private testDriving = false;
+  private editBackBtn: HTMLButtonElement | null = null;
 
   private track: Track;
   private ship: Ship | null = null;
@@ -177,7 +181,8 @@ export class Game {
       onResume: () => this.resumeRace(),
       onQuit: () => {
         this.resumeRace();
-        this.returnToMenu();
+        if (this.testDriving) this.returnToEditor();
+        else this.returnToMenu();
       },
       onFullscreen: () => void this.enterFullscreen(),
       onMusicVol: (v) => this.audio.setMusicVolume(v),
@@ -188,6 +193,15 @@ export class Game {
         this.pauseMenu.setNowPlaying(t ? `${t.title} — ${t.artist}` : "");
       },
     });
+    // Quick "back to editor" button — only visible while test-driving a track,
+    // so you never lose the in-progress map by exiting through the menu.
+    this.editBackBtn = document.createElement("button");
+    this.editBackBtn.className = "vd-testdrive-back";
+    this.editBackBtn.textContent = "◄ EDITOR";
+    this.editBackBtn.style.display = "none";
+    this.editBackBtn.addEventListener("click", () => this.returnToEditor());
+    this.container.appendChild(this.editBackBtn);
+
     this.menu.show(false); // hidden until PLAY is clicked on the title screen
 
     // Boot gate first: it captures the first user gesture so we can go
@@ -280,6 +294,9 @@ export class Game {
     this.results.hide();
     this.paused = false;
     this.pauseMenu.hide();
+    // A fresh race is not a test drive until testTrack() flags it.
+    this.testDriving = false;
+    if (this.editBackBtn) this.editBackBtn.style.display = "none";
 
     const fwd = this.track.startForward;
     const right = new Vector3(fwd.z, 0, -fwd.x);
@@ -549,8 +566,8 @@ export class Game {
         const dx = p.ship.position.x - pad.position.x;
         const dz = p.ship.position.z - pad.position.z;
         if (dx * dx + dz * dz < PAD_TRIGGER_RADIUS * PAD_TRIGGER_RADIUS) {
-          if (pad.kind === "boost") p.ship.applyBoostPad();
-          else p.ship.applyJumpPad(pad.power);
+          if (pad.kind === "boost") p.ship.applyBoostPad(pad.forward);
+          else p.ship.applyJumpPad(pad.power, pad.forward);
           pad.cooldown = PAD_COOLDOWN;
           break;
         }
@@ -604,6 +621,8 @@ export class Game {
   private returnToMenu(): void {
     this.mode = "menu";
     this.paused = false;
+    this.testDriving = false;
+    if (this.editBackBtn) this.editBackBtn.style.display = "none";
     this.disposeLocalPlayers(); // no-op outside a local race; restores the camera
     this.pauseMenu.hide();
     this.hud.show(false);
@@ -637,11 +656,33 @@ export class Game {
     this.minimap.setTrack(this.track);
   }
 
-  /** Test-drive the track currently in the editor: load it and run a solo lap. */
+  /** Test-drive the track currently in the editor: load it and run a solo lap.
+   * Stays flagged as a test drive so every exit returns to the editor. */
   private testTrack(spec: TrackSpec): void {
     this.editor.close();
     this.loadTrackSpec(spec);
     this.startRace(this.lastSpec, "time", this.lastUseGyro);
+    this.testDriving = true;
+    if (this.editBackBtn) this.editBackBtn.style.display = "";
+  }
+
+  /** Return from a test drive straight back into the editor, preserving the
+   * (possibly unsaved) in-progress track. */
+  private returnToEditor(): void {
+    this.mode = "editor";
+    this.paused = false;
+    this.testDriving = false;
+    if (this.editBackBtn) this.editBackBtn.style.display = "none";
+    this.disposeLocalPlayers();
+    this.pauseMenu.hide();
+    this.hud.show(false);
+    this.hud.setCountdown(null);
+    this.hud.setWrongWay(false);
+    this.minimap.show(false);
+    this.results.hide();
+    this.ghost.hide();
+    this.input.setTouchControlsVisible(false);
+    this.editor.resume();
   }
 
   /**
@@ -787,11 +828,15 @@ export class Game {
         this.handleMenuPad();
         this.menu.tick(); // per-device polling for the split-screen join lobby
       }
-      // Keep the scene alive behind the menu / editor.
-      this.speedLines.render(dt, 0, 0);
+      // Keep the scene alive behind the menu. The editor draws its own opaque
+      // overlay (with its OWN 3D engine), so the main scene there is invisible —
+      // skip it so two WebGL contexts aren't rendering full-res at once, which
+      // stalls the GPU in fullscreen (the editor would appear to freeze).
+      if (this.mode !== "editor") this.speedLines.render(dt, 0, 0);
     }
 
-    this.scene.render();
+    // Don't render the (hidden) main scene while the editor overlay is up.
+    if (this.mode !== "editor") this.scene.render();
   }
 
   /** Let a gamepad drive the boot gate, splash and menus (full controller
@@ -969,8 +1014,15 @@ export class Game {
     this.wrongWayT = 0;
     this.input.setTouchControlsVisible(false);
 
-    const onRetry = () => this.startRace(this.lastSpec, this.raceMode, this.lastUseGyro);
-    const onMenu = () => this.returnToMenu();
+    const wasTestDrive = this.testDriving;
+    const onRetry = () => {
+      this.startRace(this.lastSpec, this.raceMode, this.lastUseGyro);
+      if (wasTestDrive) {
+        this.testDriving = true;
+        if (this.editBackBtn) this.editBackBtn.style.display = "";
+      }
+    };
+    const onMenu = () => (wasTestDrive ? this.returnToEditor() : this.returnToMenu());
 
     if (this.raceMode === "time") {
       const lines = [
@@ -1011,8 +1063,8 @@ export class Game {
       const dx = this.ship.position.x - pad.position.x;
       const dz = this.ship.position.z - pad.position.z;
       if (dx * dx + dz * dz < PAD_TRIGGER_RADIUS * PAD_TRIGGER_RADIUS) {
-        if (pad.kind === "boost") this.ship.applyBoostPad();
-        else this.ship.applyJumpPad(pad.power);
+        if (pad.kind === "boost") this.ship.applyBoostPad(pad.forward);
+        else this.ship.applyJumpPad(pad.power, pad.forward);
         pad.cooldown = PAD_COOLDOWN;
       }
     }
