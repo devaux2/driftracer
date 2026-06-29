@@ -3,8 +3,9 @@ import { TRACKS } from "../config/tracks";
 import { logoMark, ICONS, shipIcon, trackThumb } from "./marks";
 import { ShipPreview } from "./ShipPreview";
 import type { AudioManager, Pool } from "../audio/AudioManager";
+import { assignSchemes, schemeLabel } from "../input/PlayerInput";
 
-type Screen = "main" | "garage" | "tracks" | "music";
+type Screen = "main" | "garage" | "tracks" | "music" | "local";
 
 interface GameMode {
   id: string;
@@ -20,7 +21,8 @@ const MODES: GameMode[] = [
   { id: "time", name: "TIME ATTACK", jp: "タイムアタック", icon: ICONS.time, playable: true },
   { id: "tracks", name: "SELECT TRACK", jp: "コース選択", icon: ICONS.track, playable: true },
   { id: "gp", name: "GRAND PRIX", jp: "グランプリ", icon: ICONS.gp, playable: false },
-  { id: "mp", name: "MULTIPLAYER", jp: "マルチプレイヤー", icon: ICONS.mp, playable: false },
+  { id: "local", name: "LOCAL RACE", jp: "ローカル対戦", icon: ICONS.mp, playable: true },
+  { id: "mp", name: "ONLINE", jp: "オンライン", icon: ICONS.mp, playable: false },
   { id: "garage", name: "GARAGE", jp: "ガレージ", icon: ICONS.garage, playable: true },
   { id: "editor", name: "TRACK EDITOR", jp: "エディター", icon: ICONS.editor, playable: true },
   { id: "music", name: "MUSIC", jp: "ミュージック", icon: ICONS.music, playable: true },
@@ -53,13 +55,16 @@ export class Menu {
   private useGyro = false;
   /** Gamepad cursor on the music screen (0 = skip button, 1.. = track rows). */
   private musicFocus = 0;
+  /** Local split-screen player count (desktop only). */
+  private localCount = 2;
 
   constructor(
     container: HTMLElement,
     private isTouchDevice: boolean,
     private onStart: (ship: ShipSpec, mode: string, useGyro: boolean, trackId: string) => void,
     private onEditor: () => void,
-    private audio: AudioManager
+    private audio: AudioManager,
+    private onStartLocal: (count: number, trackId: string) => void
   ) {
     this.root = document.createElement("div");
     this.root.className = "vd-menu overlay";
@@ -86,7 +91,8 @@ export class Menu {
     if (this.screen === "main") this.renderMain();
     else if (this.screen === "garage") this.renderGarage();
     else if (this.screen === "tracks") this.renderTracks();
-    else this.renderMusic();
+    else if (this.screen === "music") this.renderMusic();
+    else this.renderLocal();
     // Main menu is a live autopilot flythrough; garage/tracks spin the model.
     this.preview.setMode(this.screen === "main" ? "drive" : "showcase");
     this.preview.setShip(getShipById(this.selectedShipId));
@@ -162,7 +168,7 @@ export class Menu {
     this.root.className = "vd-menu overlay vd-screen-main";
     const ship = getShipById(this.selectedShipId);
 
-    const modes = MODES.map((m) => {
+    const modes = this.visibleModes().map((m) => {
       const sel = m.id === this.focus;
       const sub = m.id === "tracks" ? `${m.jp} · ${this.trackName(this.selectedTrackId)}` : m.jp;
       return `
@@ -235,9 +241,14 @@ export class Menu {
     });
   }
 
+  /** Modes shown on this device (local split-screen is desktop-only). */
+  private visibleModes(): GameMode[] {
+    return MODES.filter((m) => !(m.id === "local" && this.isTouchDevice));
+  }
+
   /** IDs the cursor can land on (playable rows, incl. Garage). */
   private navIds(): string[] {
-    return MODES.filter((m) => m.playable).map((m) => m.id);
+    return this.visibleModes().filter((m) => m.playable).map((m) => m.id);
   }
 
   /** Click a row: focus it and act immediately. */
@@ -264,6 +275,10 @@ export class Menu {
     if (id === "music") {
       this.musicFocus = 0;
       this.goto("music");
+      return;
+    }
+    if (id === "local") {
+      this.goto("local");
       return;
     }
     const mode = MODES.find((m) => m.id === id);
@@ -294,9 +309,75 @@ export class Menu {
       if (nav.left) this.cycleTrack(-1);
       if (nav.right) this.cycleTrack(1);
       if (nav.confirm || nav.back) this.goto("main");
+    } else if (this.screen === "local") {
+      if (nav.left) this.setLocalCount(this.localCount - 1);
+      if (nav.right) this.setLocalCount(this.localCount + 1);
+      if (nav.confirm) this.onStartLocal(this.localCount, this.selectedTrackId);
+      if (nav.back) this.goto("main");
     } else {
       this.handleMusicPad(nav);
     }
+  }
+
+  // ---- local split-screen setup (desktop only) -----------------------------
+
+  private setLocalCount(n: number): void {
+    this.localCount = Math.max(2, Math.min(4, n));
+    this.renderLocal();
+  }
+
+  private renderLocal(): void {
+    this.root.className = "vd-menu overlay vd-screen-local";
+    const schemes = assignSchemes(this.localCount);
+    const accents = ["#d8f600", "#00d7f2", "#ff5a1f", "#f4044e"];
+
+    const players = Array.from({ length: this.localCount }, (_, i) => {
+      const s = SHIPS[i % SHIPS.length];
+      const ctl = schemes[i] ? schemeLabel(schemes[i]) : "—";
+      return `
+        <div class="vd-lc-player">
+          <span class="vd-lc-tag" style="color:${accents[i]}">P${i + 1}</span>
+          <span class="vd-lc-craft">${s.code} <b>${s.name}</b></span>
+          <span class="vd-lc-ctl">${ctl}</span>
+        </div>`;
+    }).join("");
+
+    const counts = [2, 3, 4]
+      .map((n) => `<button class="vd-lc-count ${n === this.localCount ? "sel" : ""}" data-n="${n}">${n}P</button>`)
+      .join("");
+
+    this.content.innerHTML = `
+      <div class="vd-shell">
+        ${this.plusMarks()}
+        <header class="vd-topbar">
+          <div class="vd-brand vd-brand--garage">
+            <span class="vd-badge">${logoMark()}</span>
+            <span>
+              <span class="vd-brand-name">LOCAL RACE</span>
+              <span class="vd-brand-jp">ローカル対戦</span>
+            </span>
+          </div>
+        </header>
+
+        <div class="vd-lc-body">
+          <div class="vd-lc-counts"><span class="vd-lc-label">PLAYERS</span>${counts}</div>
+          <div class="vd-lc-players">${players}</div>
+          <p class="vd-lc-hint">Split-screen on this screen · course: ${this.trackName(this.selectedTrackId)}. Gamepads are assigned first, then the keyboard splits into ARROW KEYS + WASD.</p>
+        </div>
+
+        <footer class="vd-botbar">
+          <button class="vd-act back-act"><span class="ring">✕</span> BACK</button>
+          <button class="vd-act start-local"><span class="ring">▶</span> START</button>
+        </footer>
+      </div>`;
+
+    this.content.querySelectorAll<HTMLButtonElement>(".vd-lc-count").forEach((b) => {
+      b.addEventListener("click", () => this.setLocalCount(parseInt(b.dataset.n!, 10)));
+    });
+    this.content
+      .querySelector<HTMLButtonElement>(".start-local")!
+      .addEventListener("click", () => this.onStartLocal(this.localCount, this.selectedTrackId));
+    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
   }
 
   // ---- garage: ship select -------------------------------------------------

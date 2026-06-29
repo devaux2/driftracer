@@ -1906,3 +1906,73 @@
   .vd-ed-actions { gap: 0.6vh; }
   .vd-ed-actions .start-btn { font-size: clamp(0.82rem, 2.2vh, 1rem); padding: 0.8vh 0; }
 }
+
+/* ============================================================================
+   LOCAL SPLIT-SCREEN — per-player HUD + setup screen
+   ========================================================================== */
+.split-hud {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 12;
+  font-family: var(--vd-display);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); /* frame each viewport */
+}
+.split-hud .sh-corner { position: absolute; width: 2.2vh; height: 2.2vh; border: 2px solid var(--sh-accent, #fff); }
+.split-hud .sh-corner.tl { top: 1vh; left: 1vh; border-right: 0; border-bottom: 0; }
+.split-hud .sh-corner.br { bottom: 1vh; right: 1vh; border-left: 0; border-top: 0; }
+
+.sh-top { position: absolute; top: 1.2vh; left: 1.8vh; right: 1.8vh; display: flex; align-items: center; gap: 1vh; }
+.sh-tag { font-weight: 900; font-style: italic; font-size: clamp(1rem, 3.2vh, 2rem); letter-spacing: 0.03em; }
+.sh-craft { font-size: clamp(0.58rem, 1.5vh, 0.9rem); letter-spacing: 0.12em; color: rgba(255, 255, 255, 0.65); }
+.sh-pos { margin-left: auto; }
+.sh-pos b { font-size: clamp(1.2rem, 3.6vh, 2.2rem); font-weight: 900; font-style: italic; color: var(--vd-pink); }
+.sh-pos-t { font-size: clamp(0.7rem, 1.6vh, 1rem); color: rgba(255, 255, 255, 0.5); }
+
+.sh-bottom { position: absolute; left: 1.8vh; right: 1.8vh; bottom: 1.2vh; display: flex; align-items: flex-end; gap: 1.4vh; }
+.sh-lap { font-size: clamp(0.68rem, 1.6vh, 1rem); letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.65); }
+.sh-lap b { color: #fff; font-size: clamp(0.95rem, 2.4vh, 1.4rem); }
+.sh-speed { margin-left: auto; display: flex; align-items: baseline; gap: 0.4vh; }
+.sh-speed b { font-size: clamp(1.6rem, 5.4vh, 3.4rem); font-weight: 900; font-style: italic; line-height: 1; }
+.sh-u { font-size: clamp(0.55rem, 1.4vh, 0.82rem); color: rgba(255, 255, 255, 0.5); }
+.sh-boost { display: flex; gap: 2px; height: 1.2vh; flex: 0 0 26%; align-items: center; }
+.sh-boost > i { flex: 1; height: 100%; background: rgba(255, 255, 255, 0.12); transform: skewX(-18deg); }
+.sh-boost > i.on { background: var(--vd-lime); }
+.sh-boost.max > i.on { box-shadow: 0 0 6px var(--vd-lime); }
+
+.sh-cd { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  font-size: clamp(3rem, 16vh, 9rem); font-weight: 900; font-style: italic; color: var(--vd-pink);
+  text-shadow: 0 0 30px rgba(244, 4, 78, 0.6); pointer-events: none; }
+.sh-cd.go { color: var(--vd-lime); text-shadow: 0 0 30px rgba(216, 246, 0, 0.6); }
+.sh-cd.pop { animation: sh-pop 0.4s ease; }
+@keyframes sh-pop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+.sh-finish { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  font-size: clamp(1.4rem, 5vh, 3rem); font-weight: 900; font-style: italic; color: var(--vd-lime);
+  background: rgba(5, 5, 7, 0.4); }
+.sh-finish.show { display: flex; }
+
+.split-hud.quarter .sh-tag { font-size: clamp(0.8rem, 2.6vh, 1.4rem); }
+.split-hud.quarter .sh-speed b { font-size: clamp(1.2rem, 4vh, 2.2rem); }
+.split-hud.quarter .sh-pos b { font-size: clamp(1rem, 3vh, 1.6rem); }
+.split-hud.quarter .sh-cd { font-size: clamp(2rem, 11vh, 5rem); }
+
+/* setup screen */
+.vd-lc-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2.6vh; }
+.vd-lc-counts { display: flex; align-items: center; gap: 1.4vh; }
+.vd-lc-label { font-size: clamp(0.8rem, 1.6vh, 1rem); letter-spacing: 0.24em; color: rgba(255, 255, 255, 0.6); margin-right: 0.8vh; }
+.vd-lc-count { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.22); color: #fff;
+  font-family: var(--vd-display); font-weight: 700; font-size: clamp(1rem, 2.6vh, 1.4rem); padding: 1vh 2.6vh; cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 100%, 8px 100%, 0 100%); }
+.vd-lc-count.sel { background: var(--vd-lime); color: var(--vd-black); border-color: var(--vd-lime); }
+.vd-lc-players { display: flex; flex-direction: column; gap: 1vh; max-width: 64vw; }
+.vd-lc-player { display: flex; align-items: center; gap: 1.6vh; background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.12); padding: 1.1vh 1.8vh;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 100%, 12px 100%, 0 100%); }
+.vd-lc-tag { font-weight: 900; font-style: italic; font-size: clamp(1.2rem, 3.2vh, 2rem); flex: 0 0 2.2em; }
+.vd-lc-craft { font-size: clamp(0.85rem, 2.1vh, 1.25rem); letter-spacing: 0.08em; color: rgba(255, 255, 255, 0.7); }
+.vd-lc-craft b { color: #fff; }
+.vd-lc-ctl { margin-left: auto; font-size: clamp(0.72rem, 1.7vh, 1rem); letter-spacing: 0.12em; color: var(--vd-cyan);
+  border: 1px solid rgba(0, 215, 242, 0.45); padding: 0.4vh 1vh; }
+.vd-lc-hint { font-size: clamp(0.7rem, 1.6vh, 0.95rem); color: rgba(255, 255, 255, 0.5); max-width: 60vw; line-height: 1.5; }

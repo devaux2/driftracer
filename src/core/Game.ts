@@ -9,11 +9,15 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { GridMaterial } from "@babylonjs/materials/grid/gridMaterial";
 
+import { Viewport } from "@babylonjs/core/Maths/math.viewport";
 import { InputManager } from "../input/InputManager";
+import { PlayerInput, assignSchemes } from "../input/PlayerInput";
+import { neutralControl, type ControlState } from "../input/types";
 import { Track } from "../track/Track";
 import { Ship } from "../ship/Ship";
 import { preloadShipModel } from "../ship/shipModel";
 import { ChaseCamera } from "../camera/ChaseCamera";
+import { SplitHud } from "../ui/SplitHud";
 import { SpeedLines } from "../effects/SpeedLines";
 import { HUD } from "../ui/HUD";
 import { DesktopHud, type StandingRow } from "../ui/DesktopHud";
@@ -40,6 +44,21 @@ const GHOST_SAMPLE = 0.033; // ~30 fps recording
 type RaceMode = "quick" | "time";
 type GameMode = "menu" | "racing" | "editor";
 type RacePhase = "countdown" | "running" | "finished";
+
+/** One human in a local split-screen race: own craft, camera, input + HUD. */
+interface LocalPlayer {
+  ship: Ship;
+  camera: ChaseCamera;
+  input: PlayerInput;
+  hud: SplitHud;
+  ctrl: ControlState;
+  finished: boolean;
+  finishMs: number | null;
+  finishPos: number;
+}
+
+/** Per-player accent colours (P1..P4): lime, cyan, orange, pink. */
+const PLAYER_ACCENTS = ["#d8f600", "#00d7f2", "#ff5a1f", "#f4044e"];
 
 const PAD_TRIGGER_RADIUS = 8;
 const PAD_COOLDOWN = 1.5;
@@ -75,6 +94,8 @@ export class Game {
   private track: Track;
   private ship: Ship | null = null;
   private bots: Bot[] = [];
+  /** Non-empty only during a local split-screen race. */
+  private localPlayers: LocalPlayer[] = [];
 
   private mode: GameMode = "menu";
   private phase: RacePhase = "countdown";
@@ -131,7 +152,8 @@ export class Game {
       (ship, mode, useGyro, trackId) =>
         this.startRace(ship, mode === "time" ? "time" : "quick", useGyro, trackId),
       () => this.openEditor(),
-      this.audio
+      this.audio,
+      (count, trackId) => this.startLocalRace(count, trackId)
     );
 
     this.editor = new Editor(
@@ -337,6 +359,225 @@ export class Game {
     this.mode = "racing";
   }
 
+  // ---- local split-screen race (desktop only) ------------------------------
+
+  /** Start a local split-screen race for `count` players (2-4). Single-player
+   * state is left untouched; this drives a parallel N-player path. */
+  private startLocalRace(count: number, trackId?: string): void {
+    if (this.input.isTouchDevice) return; // split-screen is desktop-only
+    count = Math.max(2, Math.min(4, count));
+    if (trackId && this.track.spec.id !== trackId) this.loadTrackSpec(getTrackById(trackId));
+
+    // tear down any previous race (single or local)
+    this.disposeLocalPlayers();
+    if (this.ship) {
+      this.ship.root.dispose();
+      this.ship = null;
+    }
+
+    this.raceMode = "quick";
+    this.results.hide();
+    this.paused = false;
+    this.pauseMenu.hide();
+
+    const fwd = this.track.startForward;
+    const right = new Vector3(fwd.z, 0, -fwd.x);
+    const gridPos = (slot: number): Vector3 => {
+      const row = Math.floor(slot / 2);
+      const col = slot % 2;
+      const ahead = 10 + (RACER_COUNT / 2 - 1 - row) * 16;
+      const lateral = (col === 0 ? -1 : 1) * 18;
+      return this.track.startPosition.add(fwd.scale(ahead)).add(right.scale(lateral));
+    };
+
+    const schemes = assignSchemes(count);
+    for (let i = 0; i < count; i++) {
+      const spec = SHIPS[i % SHIPS.length];
+      const ship = new Ship(this.scene, spec);
+      ship.placeAtStart(gridPos(i), fwd); // humans take the front grid slots
+      const camera = new ChaseCamera(this.scene);
+      camera.snapTo(ship, this.track);
+      const input = new PlayerInput(schemes[i] ?? { kind: "kbd-arrows" });
+      const hud = new SplitHud(this.container, `P${i + 1}`, spec.code, PLAYER_ACCENTS[i] ?? "#fff");
+      hud.setTotalLaps(RACE_LAPS);
+      hud.setCountdown(String(COUNTDOWN));
+      this.localPlayers.push({
+        ship,
+        camera,
+        input,
+        hud,
+        ctrl: neutralControl(),
+        finished: false,
+        finishMs: null,
+        finishPos: 0,
+      });
+    }
+
+    // Bots fill the rest of the grid, behind the human pack.
+    const names = [...RACER_NAMES].sort(() => Math.random() - 0.5);
+    for (let i = count; i < RACER_COUNT; i++) {
+      const botSpec = SHIPS[Math.floor(Math.random() * SHIPS.length)];
+      const bot = new Bot(this.scene, botSpec, names[i - count] ?? `CPU ${i}`, randomBotProfile(this.track.halfWidth));
+      bot.placeAtStart(gridPos(i), fwd);
+      this.bots.push(bot);
+    }
+
+    this.setSplitLayout(count);
+    this.scene.activeCameras = this.localPlayers.map((p) => p.camera.camera);
+
+    // hide single-player chrome
+    this.hud.show(false);
+    this.minimap.show(false);
+    this.ghost.hide();
+
+    this.phase = "countdown";
+    this.countdownT = COUNTDOWN;
+    this.goFlashT = 0;
+    this.raceTimeMs = 0;
+
+    this.menu.show(false);
+    void this.enterFullscreen();
+    this.audio.playRace();
+    this.mode = "racing";
+  }
+
+  /** Lay out cameras (Babylon viewports, origin bottom-left) + HUD rects (CSS,
+   * origin top-left): 2 = stacked halves, 3-4 = quadrants. */
+  private setSplitLayout(count: number): void {
+    const place = (i: number, v: [number, number, number, number], r: [number, number, number, number]) => {
+      const p = this.localPlayers[i];
+      if (!p) return;
+      p.camera.camera.viewport = new Viewport(v[0], v[1], v[2], v[3]);
+      p.hud.setRect(r[0], r[1], r[2], r[3]);
+    };
+    if (count === 2) {
+      place(0, [0, 0.5, 1, 0.5], [0, 0, 100, 50]);
+      place(1, [0, 0, 1, 0.5], [0, 50, 100, 50]);
+    } else {
+      place(0, [0, 0.5, 0.5, 0.5], [0, 0, 50, 50]);
+      place(1, [0.5, 0.5, 0.5, 0.5], [50, 0, 50, 50]);
+      place(2, [0, 0, 0.5, 0.5], [0, 50, 50, 50]);
+      place(3, [0.5, 0, 0.5, 0.5], [50, 50, 50, 50]);
+    }
+  }
+
+  /** Tear down a local race: ships, cameras, inputs, HUDs, bots; restore the
+   * single full-screen camera. Safe to call when no local race is active. */
+  private disposeLocalPlayers(): void {
+    for (const p of this.localPlayers) {
+      p.ship.root.dispose();
+      p.camera.camera.dispose();
+      p.input.dispose();
+      p.hud.dispose();
+    }
+    this.localPlayers = [];
+    for (const b of this.bots) b.dispose();
+    this.bots = [];
+    this.scene.activeCameras = null;
+    this.scene.activeCamera = this.camera.camera;
+  }
+
+  /** Overall race position of a ship among every racer (humans + bots). */
+  private rankOf(ship: Ship): number {
+    const me = ship.progress;
+    let ahead = 0;
+    for (const p of this.localPlayers) if (p.ship !== ship && p.ship.progress > me) ahead++;
+    for (const b of this.bots) if (b.ship.progress > me) ahead++;
+    return ahead + 1;
+  }
+
+  private tickLocalCountdown(dt: number): void {
+    this.countdownT -= dt;
+    const label = this.countdownT <= 0 ? "GO" : String(Math.ceil(this.countdownT));
+    for (const p of this.localPlayers) {
+      p.hud.setCountdown(label);
+      p.camera.update(dt, p.ship, this.track);
+      p.hud.update(p.ship);
+    }
+    if (this.countdownT <= 0) {
+      this.phase = "running";
+      this.goFlashT = 0.9;
+    }
+  }
+
+  private tickLocalRunning(dt: number, ctrl: ControlState): void {
+    if (this.goFlashT > 0) {
+      this.goFlashT -= dt;
+      if (this.goFlashT <= 0) for (const p of this.localPlayers) p.hud.setCountdown(null);
+    }
+
+    for (const p of this.localPlayers) {
+      if (!p.finished) p.input.read(p.ctrl);
+      else {
+        p.ctrl.steer = 0;
+        p.ctrl.brake = 0;
+        p.ctrl.boost = false;
+      }
+      p.ship.update(dt, p.ctrl, this.track);
+    }
+    for (const b of this.bots) b.update(dt, this.track);
+    this.checkPadsLocal(dt);
+    this.raceTimeMs += dt * 1000;
+
+    for (const p of this.localPlayers) {
+      p.camera.update(dt, p.ship, this.track);
+      p.hud.update(p.ship);
+      p.hud.setPosition(this.rankOf(p.ship), RACER_COUNT);
+      if (!p.finished && p.ship.lap >= RACE_LAPS) {
+        p.finished = true;
+        p.finishMs = this.raceTimeMs;
+        p.finishPos = this.rankOf(p.ship);
+        p.hud.setFinish(`FINISH · POS ${p.finishPos}`);
+        p.hud.setCountdown(null);
+      }
+    }
+
+    if (this.localPlayers.every((p) => p.finished)) {
+      this.finishLocalRace();
+      return;
+    }
+    if (ctrl.pause) this.openPause();
+  }
+
+  /** Pads for a local race: one cooldown per pad, first overlapping player wins
+   * the trigger that frame. */
+  private checkPadsLocal(dt: number): void {
+    for (const pad of this.track.pads) {
+      if (pad.cooldown > 0) {
+        pad.cooldown -= dt;
+        continue;
+      }
+      for (const p of this.localPlayers) {
+        const dx = p.ship.position.x - pad.position.x;
+        const dz = p.ship.position.z - pad.position.z;
+        if (dx * dx + dz * dz < PAD_TRIGGER_RADIUS * PAD_TRIGGER_RADIUS) {
+          if (pad.kind === "boost") p.ship.applyBoostPad();
+          else p.ship.applyJumpPad(pad.power);
+          pad.cooldown = PAD_COOLDOWN;
+          break;
+        }
+      }
+    }
+  }
+
+  private finishLocalRace(): void {
+    this.phase = "finished";
+    const count = this.localPlayers.length;
+    const lines = this.localPlayers.map((p, i) => ({
+      label: `P${i + 1} · ${p.ship.spec.code}`,
+      value: `POS ${p.finishPos} · ${fmtTime(p.finishMs)}`,
+      highlight: p.finishPos === 1,
+    }));
+    const trackId = this.track.spec.id;
+    this.results.show(
+      "RACE COMPLETE",
+      `LOCAL · ${count}P`,
+      lines,
+      () => this.startLocalRace(count, trackId),
+      () => this.returnToMenu()
+    );
+  }
+
   /** Exposed for debugging / smoke tests (e.g. injecting a test track). */
   get audioManager(): AudioManager {
     return this.audio;
@@ -363,6 +604,7 @@ export class Game {
   private returnToMenu(): void {
     this.mode = "menu";
     this.paused = false;
+    this.disposeLocalPlayers(); // no-op outside a local race; restores the camera
     this.pauseMenu.hide();
     this.hud.show(false);
     this.hud.setCountdown(null);
@@ -518,7 +760,17 @@ export class Game {
     const ctrl = this.input.update(dt);
     this.lastSteer = ctrl.steer;
 
-    if (this.mode === "racing" && this.ship) {
+    if (this.mode === "racing" && this.localPlayers.length) {
+      if (this.paused) {
+        this.tickLocalPaused(dt, ctrl);
+      } else if (this.phase === "countdown") {
+        this.tickLocalCountdown(dt);
+      } else if (this.phase === "running") {
+        this.tickLocalRunning(dt, ctrl);
+      } else {
+        for (const p of this.localPlayers) p.camera.update(dt, p.ship, this.track);
+      }
+    } else if (this.mode === "racing" && this.ship) {
       if (this.paused) {
         this.tickPaused(dt, ctrl);
       } else if (this.phase === "countdown") {
@@ -588,6 +840,20 @@ export class Game {
     this.paused = false;
     this.audio.resume();
     this.pauseMenu.hide();
+  }
+
+  /** Paused during a local race (no single `this.ship`): keep every player's
+   * camera alive and let the pause menu be driven by pad/keyboard. */
+  private tickLocalPaused(dt: number, ctrl: ControlState): void {
+    if (ctrl.pause) {
+      this.resumeRace();
+      return;
+    }
+    const nav = this.input.gamepad.getNav();
+    if (nav.up || nav.down || nav.left || nav.right || nav.confirm || nav.back) {
+      this.pauseMenu.handlePad(nav);
+    }
+    for (const p of this.localPlayers) p.camera.update(dt, p.ship, this.track);
   }
 
   /** While paused: freeze physics, keep the scene/camera alive, and let the
