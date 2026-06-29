@@ -65,6 +65,10 @@ export class Ship {
   private driftSharp = 0;
   /** Visual bank/roll, smoothed. */
   private bank = 0;
+  /** Visual pitch (nose up/down), smoothed — follows the road slope on the
+   * ground and the trajectory while airborne. */
+  private pitch = 0;
+  private pitchTarget = 0;
 
   // Last spot the ship was safely on the road — where a fall respawns it.
   private readonly lastSafe = new Vector3();
@@ -152,6 +156,8 @@ export class Ship {
     this.driftAmount = 0;
     this.driftSharp = 0;
     this.bank = 0;
+    this.pitch = 0;
+    this.pitchTarget = 0;
     this.lap = 0;
     this.currentLapMs = 0;
     this.lastT = 0;
@@ -260,9 +266,21 @@ export class Ship {
         this.verticalVel = 0;
         this.airborne = false;
       }
+      // Nose follows the trajectory: up while rising, down while falling.
+      const hSpeed = Math.max(8, Math.hypot(this.velocity.x, this.velocity.z));
+      this.pitchTarget = -Math.atan2(this.verticalVel, hSpeed);
     } else {
-      // Hover: ease toward surface height so the ship hugs hills and dips.
-      this.position.y += (groundY - this.position.y) * Math.min(1, 10 * dt);
+      // Hover: ease onto the surface so the ship hugs hills and dips — and never
+      // sink *through* the road when a climb rises faster than the ease can.
+      this.position.y += (groundY - this.position.y) * Math.min(1, 14 * dt);
+      if (this.position.y < groundY) this.position.y = groundY;
+      // Pitch to the road slope along the direction of travel so the hull lies
+      // on the surface instead of staying flat through hills and drops.
+      const f = sample.forward;
+      const d = 6;
+      const hAhead = track.locate(new Vector3(this.position.x + f.x * d, this.position.y, this.position.z + f.z * d)).height;
+      const hBehind = track.locate(new Vector3(this.position.x - f.x * d, this.position.y, this.position.z - f.z * d)).height;
+      this.pitchTarget = -Math.atan2(hAhead - hBehind, 2 * d);
     }
 
     // Fell off the course (missed a jump / launched off the side): respawn.
@@ -324,6 +342,8 @@ export class Ship {
     // steer/drift so the hull leans smoothly instead of snapping.
     const targetBank = -this.steerInput * (0.3 + 0.25 * this.driftAmount);
     this.bank += (targetBank - this.bank) * Math.min(1, 8 * dt);
+    // Ease the hull pitch toward the surface/trajectory slope.
+    this.pitch += (this.pitchTarget - this.pitch) * Math.min(1, 8 * dt);
     // Engine glow pulses with boost / speed.
     const intensity = this.boostTimer > 0 ? 2.2 : 0.6 + (this.speed / this.stats.maxSpeed) * 0.8;
     this.glowMat.emissiveColor.set(0.4 * intensity, 0.9 * intensity, 1.0 * intensity);
@@ -331,7 +351,7 @@ export class Ship {
 
   private syncTransform(): void {
     this.root.position.copyFrom(this.position);
-    this.root.rotation.set(0, this.yaw, this.bank);
+    this.root.rotation.set(this.pitch, this.yaw, this.bank);
   }
 
   // ---- pad / power-up hooks (called by Game) --------------------------------
