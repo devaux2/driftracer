@@ -62,11 +62,11 @@ export class Menu {
   private useGyro = false;
   /** Gamepad cursor on the music screen (0 = skip button, 1.. = track rows). */
   private musicFocus = 0;
-  /** Local split-screen join lobby: the devices that have claimed a slot,
-   * in join order (player 1 first). */
-  private lobby: Scheme[] = [];
-  /** Per-gamepad previous button state for join/leave/start edge detection. */
-  private padPrev = new Map<number, { a: boolean; b: boolean; start: boolean }>();
+  /** Local split-screen join lobby: each slot is a device that claimed it, the
+   * craft it's chosen, and whether it has confirmed (ready). Join order = P1.. */
+  private lobby: { scheme: Scheme; shipId: string; ready: boolean }[] = [];
+  /** Per-gamepad previous button state for edge detection. */
+  private padPrev = new Map<number, { a: boolean; b: boolean; start: boolean; left: boolean; right: boolean }>();
   /** Cursor on the multiplayer submenu (0 = local, 1 = online). */
   private mpFocus = 0;
 
@@ -76,7 +76,7 @@ export class Menu {
     private onStart: (ship: ShipSpec, mode: string, useGyro: boolean, trackId: string) => void,
     private onEditor: () => void,
     private audio: AudioManager,
-    private onStartLocal: (schemes: Scheme[], trackId: string) => void
+    private onStartLocal: (entries: { scheme: Scheme; shipId: string }[], trackId: string) => void
   ) {
     this.root = document.createElement("div");
     this.root.className = "vd-menu overlay";
@@ -442,91 +442,123 @@ export class Menu {
     if (a.kind !== b.kind) return false;
     return a.kind !== "gamepad" || a.index === (b as { index: number }).index;
   }
+  private slotFor(s: Scheme) {
+    return this.lobby.find((x) => this.sameScheme(x.scheme, s));
+  }
 
-  /** Claim the next free slot for a device (ignored if it already joined or the
-   * lobby is full). */
-  private joinScheme(s: Scheme): void {
+  /** Advance a device's state: not joined → join (ship-select); selecting →
+   * confirm (ready). */
+  private lobbyAdvance(s: Scheme): void {
     if (this.screen !== "local") return;
-    if (this.lobby.length >= 4) return;
-    if (this.lobby.some((x) => this.sameScheme(x, s))) return;
-    this.lobby.push(s);
+    const slot = this.slotFor(s);
+    if (!slot) {
+      if (this.lobby.length >= 4) return;
+      this.lobby.push({ scheme: s, shipId: SHIPS[this.lobby.length % SHIPS.length].id, ready: false });
+    } else if (!slot.ready) {
+      slot.ready = true;
+    }
     this.renderLocal();
   }
 
-  private leaveScheme(s: Scheme): void {
-    const i = this.lobby.findIndex((x) => this.sameScheme(x, s));
+  /** Step a device back: ready → selecting; selecting → leave the slot. */
+  private lobbyBack(s: Scheme): void {
+    const i = this.lobby.findIndex((x) => this.sameScheme(x.scheme, s));
     if (i < 0) return;
-    this.lobby.splice(i, 1);
+    const slot = this.lobby[i];
+    if (slot.ready) slot.ready = false;
+    else this.lobby.splice(i, 1);
     this.renderLocal();
   }
 
+  /** Cycle the craft for a device that's still choosing. */
+  private lobbyCycle(s: Scheme, dir: number): void {
+    const slot = this.slotFor(s);
+    if (!slot || slot.ready) return;
+    const idx = SHIPS.findIndex((sh) => sh.id === slot.shipId);
+    slot.shipId = SHIPS[(idx + dir + SHIPS.length) % SHIPS.length].id;
+    this.renderLocal();
+  }
+
+  private lobbyCanStart(): boolean {
+    return this.lobby.length >= 2 && this.lobby.every((s) => s.ready);
+  }
   private beginLocal(): void {
-    if (this.screen === "local" && this.lobby.length >= 2) {
-      this.onStartLocal([...this.lobby], this.selectedTrackId);
+    if (this.screen === "local" && this.lobbyCanStart()) {
+      this.onStartLocal(this.lobby.map((s) => ({ scheme: s.scheme, shipId: s.shipId })), this.selectedTrackId);
     }
   }
 
-  /** Keyboard joining: ENTER = arrow-keys player, R-SHIFT = WASD player,
-   * SPACE = start, ESC = back. Only acts on the lobby screen. */
+  /** Keyboard lobby control. P1 = Arrows + Enter (back: Backspace); P2 = A/D +
+   * Right-Shift (back: Left-Shift). SPACE starts, ESC exits. */
   private lobbyKey(e: KeyboardEvent): void {
     if (this.screen !== "local") return;
-    if (e.code === "Enter") {
-      e.preventDefault();
-      this.joinScheme({ kind: "kbd-arrows" });
-    } else if (e.code === "ShiftRight") {
-      e.preventDefault();
-      this.joinScheme({ kind: "kbd-wasd" });
-    } else if (e.code === "Space") {
-      e.preventDefault();
-      this.beginLocal();
-    } else if (e.code === "Escape") {
-      this.goto("mp");
+    const arrows: Scheme = { kind: "kbd-arrows" };
+    const wasd: Scheme = { kind: "kbd-wasd" };
+    switch (e.code) {
+      case "Enter": e.preventDefault(); this.lobbyAdvance(arrows); break;
+      case "Backspace": e.preventDefault(); this.lobbyBack(arrows); break;
+      case "ArrowLeft": e.preventDefault(); this.lobbyCycle(arrows, -1); break;
+      case "ArrowRight": e.preventDefault(); this.lobbyCycle(arrows, 1); break;
+      case "ShiftRight": e.preventDefault(); this.lobbyAdvance(wasd); break;
+      case "ShiftLeft": e.preventDefault(); this.lobbyBack(wasd); break;
+      case "KeyA": this.lobbyCycle(wasd, -1); break;
+      case "KeyD": this.lobbyCycle(wasd, 1); break;
+      case "Space": e.preventDefault(); this.beginLocal(); break;
+      case "Escape": this.goto("mp"); break;
     }
   }
 
-  /** Polled each frame (from Game) so every gamepad is read individually: A/Start
-   * to join, B to leave, Start (when ≥2 ready) to begin. */
+  /** Polled each frame (from Game) so every gamepad is read individually:
+   * A = join/confirm, B = back/leave, D-pad/stick = pick craft, START = begin
+   * once all are ready (else join). */
   tick(): void {
     if (this.screen !== "local") return;
     const pads = navigator.getGamepads?.() ?? [];
     for (let i = 0; i < pads.length; i++) {
       const pad = pads[i];
       if (!pad) continue;
+      const gp: Scheme = { kind: "gamepad", index: i };
       const a = !!pad.buttons[0]?.pressed;
       const b = !!pad.buttons[1]?.pressed;
       const start = !!pad.buttons[9]?.pressed;
-      const prev = this.padPrev.get(i) ?? { a: false, b: false, start: false };
-      const joined = this.lobby.some((x) => x.kind === "gamepad" && x.index === i);
-      if (a && !prev.a) this.joinScheme({ kind: "gamepad", index: i });
-      if (b && !prev.b) this.leaveScheme({ kind: "gamepad", index: i });
+      const ax = pad.axes[0] ?? 0;
+      const left = !!pad.buttons[14]?.pressed || ax < -0.5;
+      const right = !!pad.buttons[15]?.pressed || ax > 0.5;
+      const prev = this.padPrev.get(i) ?? { a: false, b: false, start: false, left: false, right: false };
+      if (a && !prev.a) this.lobbyAdvance(gp);
+      if (b && !prev.b) this.lobbyBack(gp);
+      if (left && !prev.left) this.lobbyCycle(gp, -1);
+      if (right && !prev.right) this.lobbyCycle(gp, 1);
       if (start && !prev.start) {
-        if (joined) this.beginLocal();
-        else this.joinScheme({ kind: "gamepad", index: i });
+        if (this.lobbyCanStart()) this.beginLocal();
+        else this.lobbyAdvance(gp);
       }
-      this.padPrev.set(i, { a, b, start });
+      this.padPrev.set(i, { a, b, start, left, right });
     }
   }
 
   private renderLocal(): void {
     this.root.className = "vd-menu overlay vd-screen-local";
-    const ready = this.lobby.length;
+    const canStart = this.lobbyCanStart();
 
     const slots = Array.from({ length: 4 }, (_, i) => {
       const s = this.lobby[i];
-      if (s) {
-        const craft = SHIPS[i % SHIPS.length];
+      if (!s) {
         return `
-          <div class="vd-lc-player joined">
-            <span class="vd-lc-tag" style="color:${Menu.LC_ACCENTS[i]}">P${i + 1}</span>
-            <span class="vd-lc-craft">${craft.code} <b>${craft.name}</b></span>
-            <span class="vd-lc-ctl">${schemeLabel(s)}</span>
-            <span class="vd-lc-ready">● READY</span>
+          <div class="vd-lc-player open">
+            <span class="vd-lc-tag" style="color:rgba(255,255,255,0.3)">P${i + 1}</span>
+            <span class="vd-lc-open">OPEN — press to join</span>
           </div>`;
       }
+      const ship = getShipById(s.shipId);
+      const name = s.ready ? `${ship.code} <b>${ship.name}</b>` : `◄ ${ship.code} <b>${ship.name}</b> ►`;
       return `
-        <div class="vd-lc-player open">
-          <span class="vd-lc-tag" style="color:rgba(255,255,255,0.3)">P${i + 1}</span>
-          <span class="vd-lc-open">OPEN — press to join</span>
+        <div class="vd-lc-player ${s.ready ? "ready" : "select"}">
+          <span class="vd-lc-tag" style="color:${Menu.LC_ACCENTS[i]}">P${i + 1}</span>
+          <span class="vd-lc-emblem">${shipIcon(ship.id, ship.color.toHexString())}</span>
+          <span class="vd-lc-craft">${name}</span>
+          <span class="vd-lc-ctl">${schemeLabel(s.scheme)}</span>
+          <span class="vd-lc-ready">${s.ready ? "● READY" : "SELECT CRAFT"}</span>
         </div>`;
     }).join("");
 
@@ -545,12 +577,12 @@ export class Menu {
 
         <div class="vd-lc-body">
           <div class="vd-lc-players">${slots}</div>
-          <p class="vd-lc-hint">Each player presses to claim a slot: <b>controller A / START</b>, keyboard <b>ENTER</b> (arrows) or <b>RIGHT-SHIFT</b> (WASD). Press <b>B</b> to leave. ${ready >= 2 ? "Press <b>START</b> / <b>SPACE</b> to race." : "Need at least 2 players."}</p>
+          <p class="vd-lc-hint">Join, pick your craft with <b>◄ ►</b>, then confirm. Controller: <b>A</b> join/confirm · <b>B</b> back · <b>D-pad</b> craft · <b>START</b> race. Keyboard: P1 <b>Arrows + Enter</b>, P2 <b>A/D + R-Shift</b>. ${canStart ? "Press <b>START</b> / <b>SPACE</b> to race." : "All players must be READY (min 2)."}</p>
         </div>
 
         <footer class="vd-botbar">
           <button class="vd-act back-act"><span class="ring">✕</span> BACK</button>
-          <button class="vd-act start-local ${ready >= 2 ? "" : "disabled"}"><span class="ring">▶</span> START (${ready})</button>
+          <button class="vd-act start-local ${canStart ? "" : "disabled"}"><span class="ring">▶</span> START</button>
         </footer>
       </div>`;
 

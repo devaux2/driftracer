@@ -34,7 +34,7 @@ import { AudioManager } from "../audio/AudioManager";
 import { NowPlaying } from "../ui/NowPlaying";
 import { PauseMenu } from "../ui/PauseMenu";
 import { getTrackById, type TrackSpec } from "../config/tracks";
-import { RACER_NAMES, SHIPS, type ShipSpec } from "../config/ships";
+import { RACER_NAMES, SHIPS, getShipById, type ShipSpec } from "../config/ships";
 
 const RACER_COUNT = 12; // player + 11 bots (quick race)
 const RACE_LAPS = 3;
@@ -153,7 +153,7 @@ export class Game {
         this.startRace(ship, mode === "time" ? "time" : "quick", useGyro, trackId),
       () => this.openEditor(),
       this.audio,
-      (schemes, trackId) => this.startLocalRace(schemes, trackId)
+      (entries, trackId) => this.startLocalRace(entries, trackId)
     );
 
     this.editor = new Editor(
@@ -363,8 +363,8 @@ export class Game {
 
   /** Start a local split-screen race for `count` players (2-4). Single-player
    * state is left untouched; this drives a parallel N-player path. */
-  private startLocalRace(schemes: Scheme[], trackId?: string): void {
-    const count = Math.max(2, Math.min(4, schemes.length));
+  private startLocalRace(entries: { scheme: Scheme; shipId: string }[], trackId?: string): void {
+    const count = Math.max(2, Math.min(4, entries.length));
     if (trackId && this.track.spec.id !== trackId) this.loadTrackSpec(getTrackById(trackId));
 
     // tear down any previous race (single or local)
@@ -390,12 +390,12 @@ export class Game {
     };
 
     for (let i = 0; i < count; i++) {
-      const spec = SHIPS[i % SHIPS.length];
+      const spec = getShipById(entries[i].shipId);
       const ship = new Ship(this.scene, spec);
       ship.placeAtStart(gridPos(i), fwd); // humans take the front grid slots
       const camera = new ChaseCamera(this.scene);
       camera.snapTo(ship, this.track);
-      const input = new PlayerInput(schemes[i] ?? { kind: "kbd-arrows" });
+      const input = new PlayerInput(entries[i].scheme);
       const hud = new SplitHud(this.container, `P${i + 1}`, spec.code, PLAYER_ACCENTS[i] ?? "#fff");
       hud.setTotalLaps(RACE_LAPS);
       hud.setCountdown(String(COUNTDOWN));
@@ -567,12 +567,13 @@ export class Game {
       highlight: p.finishPos === 1,
     }));
     const trackId = this.track.spec.id;
-    const schemes = this.localPlayers.map((p) => p.input.scheme); // retry with the same devices
+    // retry with the same devices + craft
+    const entries = this.localPlayers.map((p) => ({ scheme: p.input.scheme, shipId: p.ship.spec.id }));
     this.results.show(
       "RACE COMPLETE",
       `LOCAL · ${count}P`,
       lines,
-      () => this.startLocalRace(schemes, trackId),
+      () => this.startLocalRace(entries, trackId),
       () => this.returnToMenu()
     );
   }
