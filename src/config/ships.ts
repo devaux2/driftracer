@@ -63,10 +63,16 @@ export interface ResolvedShipStats {
 }
 
 // Tuning anchors: a stat of 0 maps to MIN, a stat of 1 maps to MAX.
-const SPEED_MIN = 127;
-const SPEED_MAX = 237;
-const THRUST_MIN = 28;
-const THRUST_MAX = 70;
+// Top speed is now the real cruising ceiling (the craft holds it on a straight),
+// so a wide range makes the topSpeed stat clearly felt: a low-top craft is
+// visibly capped while a high-top one keeps pulling away.
+const SPEED_MIN = 108;
+const SPEED_MAX = 268;
+// Acceleration sets how fast you climb to that ceiling (no longer secretly the
+// top speed), so keep a wide thrust range too — quick craft snap to speed,
+// heavy ones take a long runway.
+const THRUST_MIN = 26;
+const THRUST_MAX = 72;
 // Grip (non-drift) turn rate. Bumped +30% for snappier steering — and since
 // drift rotation is proportional to this, the air-brake rotation speeds up by
 // the same +30%.

@@ -227,17 +227,23 @@ export class Ship {
       this.velocity.copyFrom(headingDir.scale(speed));
     }
 
-    // --- speed magnitude: auto-accel toward (boosted) top speed + light drag.
-    // No brake scrub anywhere; direction is untouched here, so this just keeps
-    // up the speed you carry through a slide. ---
+    // --- speed magnitude: accelerate toward the (boosted) top speed, then hold
+    // it. Acceleration (thrust) sets the CLIMB RATE; top speed (maxSpeed) is the
+    // CEILING — they're decoupled so both stats are felt distinctly. Drag only
+    // bites ABOVE the target, to bleed boost overspeed back down to cruising; it
+    // never caps you below maxSpeed (which used to make topSpeed barely matter).
+    // Direction is untouched here, so cornering keeps the speed you carry. ---
     speed = this.velocity.length();
     const boosting = this.boostTimer > 0 && !this.airborne;
     const targetSpeed = boosting ? BOOST_PAD_SPEED : this.stats.maxSpeed;
     let thrust = boosting ? this.stats.thrust * 3 : this.stats.thrust;
     if (this.airborne) thrust *= 0.15;
     let newSpeed = speed;
-    if (newSpeed < targetSpeed) newSpeed = Math.min(targetSpeed, newSpeed + thrust * dt);
-    newSpeed -= newSpeed * this.stats.drag * dt;
+    if (newSpeed < targetSpeed) {
+      newSpeed = Math.min(targetSpeed, newSpeed + thrust * dt);
+    } else if (newSpeed > targetSpeed) {
+      newSpeed = Math.max(targetSpeed, newSpeed - newSpeed * this.stats.drag * dt);
+    }
     if (speed > 0.001) this.velocity.scaleInPlace(newSpeed / speed);
     else this.velocity.copyFrom(headingDir.scale(newSpeed));
 
