@@ -4,37 +4,26 @@ import { EditorPreview3D } from "./EditorPreview3D";
 import { logoMark } from "./marks";
 
 /**
- * MAP MAKER — a block/piece track builder, the controller-first counterpart to
- * the freeform point editor. You "drive" the track into existence: each piece
- * appends to the end of the last one, auto-connecting, so the result is always a
- * valid connected ribbon. The loop closes through the Catmull-Rom spline.
- *
- * Core input is directional — Up = straight, Left/Right = curve, Down = undo —
- * which maps cleanly onto a D-pad/stick. Hills and pads are extra buttons. A
- * live 2D plan + 3D preview update as you lay pieces.
+ * TRACK BUILDER · SIMPLE — a grid track painter, the controller-first companion
+ * to the freeform point editor (TRACK BUILDER · COMPLEX). You grow the track one
+ * cell at a time on a grid: move N/E/S/W (D-pad / arrows / click) and the track
+ * follows, auto-rounding corners through the Catmull-Rom spline. Return to the
+ * start cell to close the loop. Always a single, non-crossing connected path, so
+ * it's hard to make an invalid track. Per-cell elevation gives hills; a cell can
+ * carry a boost or jump pad.
  */
 
-type PieceType = "straight" | "left" | "right" | "sharpL" | "sharpR" | "hillUp" | "hillDown";
-interface Piece {
-  type: PieceType;
+interface Cell {
+  c: number; // column
+  r: number; // row
+  y: number; // elevation (world units)
   pad?: "boost" | "jump";
 }
 
-// Geometry tunables (world units).
-const STRAIGHT = 240;
-const TURN_STEP = 150; // chord per arc sub-step
-const HILL = 110; // elevation delta per hill piece
+const GRID = 15; // cells per side (odd → integer centre)
+const CELL = 240; // world units per cell
+const LIFT = 90; // elevation step per raise/lower
 const HALF_WIDTH = 44;
-
-const PALETTE: { type: PieceType; label: string; key: string }[] = [
-  { type: "straight", label: "▲ STRAIGHT", key: "ArrowUp" },
-  { type: "left", label: "◀ CURVE L", key: "ArrowLeft" },
-  { type: "right", label: "CURVE R ▶", key: "ArrowRight" },
-  { type: "sharpL", label: "◀◀ SHARP L", key: "KeyQ" },
-  { type: "sharpR", label: "SHARP R ▶▶", key: "KeyE" },
-  { type: "hillUp", label: "⤒ HILL UP", key: "KeyW" },
-  { type: "hillDown", label: "⤓ HILL DOWN", key: "KeyS" },
-];
 
 export class SimpleEditor {
   private root: HTMLDivElement;
@@ -43,10 +32,11 @@ export class SimpleEditor {
   private info: HTMLDivElement;
   private preview3d: EditorPreview3D;
 
-  private pieces: Piece[] = [];
+  private path: Cell[] = [];
   private spec: TrackSpec = this.emptySpec();
+  // grid→canvas mapping from the last draw (for click hit-testing)
+  private fit = { ox: 0, oy: 0, cw: 1 };
 
-  // Controller edge-detection state.
   private padPrev = new Map<number, Record<string, boolean>>();
 
   constructor(
@@ -58,25 +48,21 @@ export class SimpleEditor {
     this.root.className = "vd-mm overlay";
     this.root.style.display = "none";
 
-    const palette = PALETTE.map(
-      (p) => `<button class="vd-mm-piece" data-type="${p.type}">${p.label}</button>`
-    ).join("");
-
     this.root.innerHTML = `
       <header class="vd-mm-top">
         <div class="vd-brand vd-brand--garage">
           <span class="vd-badge">${logoMark()}</span>
           <span>
-            <span class="vd-brand-name">MAP MAKER</span>
-            <span class="vd-brand-jp">マップメーカー · ブロック</span>
+            <span class="vd-brand-name">TRACK BUILDER</span>
+            <span class="vd-brand-jp">シンプル · SIMPLE</span>
           </span>
         </div>
-        <p class="vd-mm-hint">Lay the track piece by piece — each one snaps onto the last. <b>↑</b> straight · <b>← →</b> curve · <b>↓</b> undo. Controller: <b>D-pad</b> to lay · <b>LB/RB</b> hills · <b>X</b> boost · <b>Y</b> jump · <b>START</b> test.</p>
+        <p class="vd-mm-hint">Grow the track on the grid: <b>↑ ↓ ← →</b> (or click a neighbouring cell) lays the next piece; head back over the last cell to undo. Return to the <b>start</b> to close the loop. <b>RB/LB</b> raise/lower · <b>X</b> boost · <b>Y</b> jump · <b>START</b> test.</p>
       </header>
 
       <div class="vd-mm-body">
         <div class="vd-mm-plan">
-          <span class="vd-mm-label">PLAN ▸ top-down</span>
+          <span class="vd-mm-label">GRID ▸ build here</span>
           <canvas class="vd-mm-canvas"></canvas>
         </div>
         <div class="vd-mm-3d">
@@ -85,13 +71,13 @@ export class SimpleEditor {
         </div>
       </div>
 
-      <div class="vd-mm-palette">${palette}</div>
-
       <footer class="vd-mm-bar">
         <div class="vd-mm-actions-l">
           <button class="vd-mm-btn vd-mm-undo">↶ UNDO</button>
-          <button class="vd-mm-btn vd-mm-boost">● +BOOST</button>
-          <button class="vd-mm-btn vd-mm-jump">▲ +JUMP</button>
+          <button class="vd-mm-btn vd-mm-up">⤒ RAISE</button>
+          <button class="vd-mm-btn vd-mm-down">⤓ LOWER</button>
+          <button class="vd-mm-btn vd-mm-boost">● BOOST</button>
+          <button class="vd-mm-btn vd-mm-jump">▲ JUMP</button>
           <button class="vd-mm-btn vd-mm-clear">✕ CLEAR</button>
         </div>
         <div class="vd-mm-info"></div>
@@ -110,12 +96,12 @@ export class SimpleEditor {
     const c3d = this.root.querySelector<HTMLCanvasElement>(".vd-mm-3dcanvas")!;
     this.preview3d = new EditorPreview3D(c3d);
 
-    this.root.querySelectorAll<HTMLButtonElement>(".vd-mm-piece").forEach((b) => {
-      b.addEventListener("click", () => this.add(b.dataset.type as PieceType));
-    });
+    this.canvas.addEventListener("pointerdown", (e) => this.onCanvasClick(e));
     this.root.querySelector(".vd-mm-undo")!.addEventListener("click", () => this.undo());
-    this.root.querySelector(".vd-mm-boost")!.addEventListener("click", () => this.tagLast("boost"));
-    this.root.querySelector(".vd-mm-jump")!.addEventListener("click", () => this.tagLast("jump"));
+    this.root.querySelector(".vd-mm-up")!.addEventListener("click", () => this.lift(1));
+    this.root.querySelector(".vd-mm-down")!.addEventListener("click", () => this.lift(-1));
+    this.root.querySelector(".vd-mm-boost")!.addEventListener("click", () => this.tagHead("boost"));
+    this.root.querySelector(".vd-mm-jump")!.addEventListener("click", () => this.tagHead("jump"));
     this.root.querySelector(".vd-mm-clear")!.addEventListener("click", () => this.clear());
     this.root.querySelector(".vd-mm-test")!.addEventListener("click", () => this.test());
     this.root.querySelector(".vd-mm-save")!.addEventListener("click", () => this.save());
@@ -136,7 +122,7 @@ export class SimpleEditor {
   // ---- lifecycle -----------------------------------------------------------
 
   open(): void {
-    if (this.pieces.length === 0) this.pieces = SimpleEditor.defaultLoop();
+    if (this.path.length === 0) this.path = [{ c: (GRID - 1) / 2, r: (GRID - 1) / 2, y: 0 }];
     this.root.style.display = "";
     this.preview3d.setActive(true);
     this.preview3d.resetFraming();
@@ -162,38 +148,77 @@ export class SimpleEditor {
     this.draw();
   }
 
-  // ---- piece ops -----------------------------------------------------------
+  // ---- path ops ------------------------------------------------------------
 
-  private add(type: PieceType): void {
-    this.pieces.push({ type });
+  private head(): Cell {
+    return this.path[this.path.length - 1];
+  }
+
+  private indexOf(c: number, r: number): number {
+    return this.path.findIndex((p) => p.c === c && p.r === r);
+  }
+
+  private closed(): boolean {
+    if (this.path.length < 4) return false;
+    const h = this.head();
+    const s = this.path[0];
+    return Math.abs(h.c - s.c) + Math.abs(h.r - s.r) === 1;
+  }
+
+  /** Grow toward an orthogonally-adjacent cell: extend, undo (back over the
+   * previous cell), or close (onto the start). */
+  private step(c: number, r: number): void {
+    const h = this.head();
+    if (Math.abs(c - h.c) + Math.abs(r - h.r) !== 1) return; // not a neighbour
+    if (c < 0 || r < 0 || c >= GRID || r >= GRID) return;
+    // backing onto the previous cell undoes
+    if (this.path.length >= 2) {
+      const prev = this.path[this.path.length - 2];
+      if (prev.c === c && prev.r === r) {
+        this.path.pop();
+        this.refresh();
+        return;
+      }
+    }
+    const existing = this.indexOf(c, r);
+    if (existing === 0 && this.path.length >= 3) {
+      // returning to start closes the loop (head ends adjacent to start)
+      this.refresh();
+      return;
+    }
+    if (existing !== -1) return; // can't cross the track
+    this.path.push({ c, r, y: h.y });
     this.refresh();
   }
 
   private undo(): void {
-    this.pieces.pop();
+    if (this.path.length > 1) this.path.pop();
     this.refresh();
   }
 
   private clear(): void {
-    this.pieces = SimpleEditor.defaultLoop();
+    this.path = [{ c: (GRID - 1) / 2, r: (GRID - 1) / 2, y: 0 }];
     this.refresh();
   }
 
-  /** Drop a boost/jump pad on the most recent piece (toggles off if same). */
-  private tagLast(pad: "boost" | "jump"): void {
-    const last = this.pieces[this.pieces.length - 1];
-    if (!last) return;
-    last.pad = last.pad === pad ? undefined : pad;
+  private lift(dir: number): void {
+    this.head().y += dir * LIFT;
+    this.refresh();
+  }
+
+  private tagHead(pad: "boost" | "jump"): void {
+    const h = this.head();
+    h.pad = h.pad === pad ? undefined : pad;
     this.refresh();
   }
 
   private test(): void {
-    if (this.spec.points.length < 4) return;
+    if (!this.closed()) return;
     this.onTest(this.spec);
   }
 
   private save(): void {
-    if (this.spec.points.length < 4) return;
+    if (!this.closed()) return;
     saveCustomTrack(this.spec);
     const el = this.root.querySelector<HTMLButtonElement>(".vd-mm-save")!;
     const prev = el.textContent;
@@ -203,68 +228,25 @@ export class SimpleEditor {
 
   // ---- track generation ----------------------------------------------------
 
-  /** Walk the piece chain from the origin, emitting control points + pads. */
+  private cellWorld(cell: Cell): { x: number; z: number } {
+    return { x: (cell.c - (GRID - 1) / 2) * CELL, z: (cell.r - (GRID - 1) / 2) * CELL };
+  }
+
   private generate(): TrackSpec {
     const pts: ControlPoint[] = [];
-    const pieceIdx: number[] = []; // representative point index per piece
-    let x = 0,
-      z = 0,
-      y = 0,
-      yaw = 0;
-    const push = (bank?: number): void => {
-      const cp: number[] = [Math.round(x), Math.round(y), Math.round(z)];
-      if (bank) cp[3] = bank;
-      pts.push(cp as ControlPoint);
-    };
-    push(); // start point
-
-    for (const piece of this.pieces) {
-      switch (piece.type) {
-        case "straight": {
-          x += Math.sin(yaw) * STRAIGHT;
-          z += Math.cos(yaw) * STRAIGHT;
-          push();
-          break;
-        }
-        case "hillUp":
-        case "hillDown": {
-          y += piece.type === "hillUp" ? HILL : -HILL;
-          x += Math.sin(yaw) * STRAIGHT;
-          z += Math.cos(yaw) * STRAIGHT;
-          push();
-          break;
-        }
-        default: {
-          // curves: gentle 45 deg over 2 steps, sharp 90 deg over 3 steps.
-          const sharp = piece.type === "sharpL" || piece.type === "sharpR";
-          const left = piece.type === "left" || piece.type === "sharpL";
-          const sign = left ? -1 : 1;
-          const deg = sharp ? 90 : 45;
-          const steps = sharp ? 3 : 2;
-          const dr = ((sign * deg) / steps) * (Math.PI / 180);
-          const bank = sign * (sharp ? 22 : 13);
-          for (let k = 0; k < steps; k++) {
-            yaw += dr;
-            x += Math.sin(yaw) * TURN_STEP;
-            z += Math.cos(yaw) * TURN_STEP;
-            push(bank);
-          }
-        }
-      }
-      pieceIdx.push(pts.length - 1);
-    }
-
     const pads: PadSpec[] = [];
-    this.pieces.forEach((piece, i) => {
-      if (!piece.pad) return;
-      const t = pieceIdx[i] / pts.length;
-      pads.push(
-        piece.pad === "jump"
-          ? { kind: "jump", t, offset: 0, power: 1.4 }
-          : { kind: "boost", t, offset: 0 }
-      );
+    this.path.forEach((cell, i) => {
+      const w = this.cellWorld(cell);
+      pts.push([Math.round(w.x), Math.round(cell.y), Math.round(w.z)]);
+      if (cell.pad) {
+        const t = i / this.path.length;
+        pads.push(
+          cell.pad === "jump"
+            ? { kind: "jump", t, offset: 0, power: 1.4 }
+            : { kind: "boost", t, offset: 0 }
+        );
+      }
     });
-
     return { id: "custom", name: "CUSTOM TRACK", roadHalfWidth: HALF_WIDTH, points: pts, pads };
   }
 
@@ -272,115 +254,147 @@ export class SimpleEditor {
     return { id: "custom", name: "CUSTOM TRACK", roadHalfWidth: HALF_WIDTH, points: [], pads: [] };
   }
 
-  /** A friendly starting loop (rounded rectangle) so it's never empty. */
-  private static defaultLoop(): Piece[] {
-    const out: Piece[] = [];
-    for (let i = 0; i < 4; i++) {
-      out.push({ type: "straight" }, { type: "straight" }, { type: "sharpR" });
-    }
-    return out;
-  }
-
   private refresh(): void {
     this.spec = this.generate();
     this.preview3d.setSpec(this.spec);
-    const valid = this.spec.points.length >= 4;
+    const closed = this.closed();
     const pads = this.spec.pads.length;
-    this.info.innerHTML = `${this.pieces.length} PIECES · ${this.spec.points.length} PTS${pads ? ` · ${pads} PADS` : ""}${valid ? "" : ` · <span class="vd-mm-warn">add more</span>`}`;
-    this.root.querySelector(".vd-mm-test")!.classList.toggle("disabled", !valid);
+    this.info.innerHTML =
+      `${this.path.length} CELLS${pads ? ` · ${pads} PADS` : ""} · ` +
+      (closed ? `<span class="vd-mm-ok">LOOP CLOSED ✓</span>` : `<span class="vd-mm-warn">return to start to close</span>`);
+    this.root.querySelector(".vd-mm-test")!.classList.toggle("disabled", !closed);
+    this.root.querySelector(".vd-mm-save")!.classList.toggle("disabled", !closed);
     this.draw();
   }
 
-  // ---- 2D plan -------------------------------------------------------------
+  // ---- 2D grid -------------------------------------------------------------
 
   private draw(): void {
     const ctx = this.ctx;
     const w = this.canvas.clientWidth || 1;
     const h = this.canvas.clientHeight || 1;
     ctx.clearRect(0, 0, w, h);
-    const pts = this.spec.points;
-    if (pts.length < 2) return;
 
-    let minX = Infinity,
-      maxX = -Infinity,
-      minZ = Infinity,
-      maxZ = -Infinity;
-    for (const p of pts) {
-      minX = Math.min(minX, p[0]);
-      maxX = Math.max(maxX, p[0]);
-      minZ = Math.min(minZ, p[2]);
-      maxZ = Math.max(maxZ, p[2]);
+    const pad = 24;
+    const cw = (Math.min(w, h) - pad * 2) / GRID;
+    const ox = (w - cw * GRID) / 2;
+    const oy = (h - cw * GRID) / 2;
+    this.fit = { ox, oy, cw };
+    const cx = (c: number) => ox + (c + 0.5) * cw;
+    const cy = (r: number) => oy + (r + 0.5) * cw;
+
+    // grid dots
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    for (let r = 0; r < GRID; r++)
+      for (let c = 0; c < GRID; c++) {
+        ctx.beginPath();
+        ctx.arc(cx(c), cy(r), 1.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+    // highlight the cells you could grow into next
+    const hd = this.head();
+    if (hd) {
+      ctx.fillStyle = "rgba(0,215,242,0.10)";
+      for (const [dc, dr] of [[0, -1], [0, 1], [-1, 0], [1, 0]] as const) {
+        const nc = hd.c + dc,
+          nr = hd.r + dr;
+        if (nc < 0 || nr < 0 || nc >= GRID || nr >= GRID) continue;
+        if (this.indexOf(nc, nr) !== -1 && !(nc === this.path[0].c && nr === this.path[0].r)) continue;
+        ctx.fillRect(ox + nc * cw + 2, oy + nr * cw + 2, cw - 4, cw - 4);
+      }
     }
-    const pad = 36;
-    const span = Math.max(maxX - minX, maxZ - minZ, 1);
-    const scale = (Math.min(w, h) - pad * 2) / span;
-    const cx = (minX + maxX) / 2;
-    const cz = (minZ + maxZ) / 2;
-    const sx = (px: number) => w / 2 + (px - cx) * scale;
-    const sy = (pz: number) => h / 2 + (pz - cz) * scale;
 
-    // closed ribbon outline
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = "rgba(255,255,255,0.16)";
-    ctx.lineWidth = Math.max(6, HALF_WIDTH * 2 * scale);
-    ctx.beginPath();
-    ctx.moveTo(sx(pts[0][0]), sy(pts[0][2]));
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(sx(pts[i][0]), sy(pts[i][2]));
-    ctx.closePath();
-    ctx.stroke();
+    // the track ribbon through cell centres (closed if the loop is closed)
+    if (this.path.length >= 2) {
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = Math.max(6, cw * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(cx(this.path[0].c), cy(this.path[0].r));
+      for (let i = 1; i < this.path.length; i++) ctx.lineTo(cx(this.path[i].c), cy(this.path[i].r));
+      if (this.closed()) ctx.closePath();
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(0,215,242,0.75)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
 
-    // centre line
-    ctx.strokeStyle = "rgba(0,215,242,0.7)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    // elevation tags
+    ctx.font = `${Math.max(8, cw * 0.3)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const cell of this.path) {
+      if (cell.y === 0) continue;
+      ctx.fillStyle = cell.y > 0 ? "rgba(0,215,242,0.9)" : "rgba(255,90,31,0.9)";
+      ctx.fillText(cell.y > 0 ? "▲" : "▼", cx(cell.c), cy(cell.r));
+    }
 
     // pads
-    for (const padSpec of this.spec.pads) {
-      const idx = Math.min(pts.length - 1, Math.floor(padSpec.t * pts.length));
-      const p = pts[idx];
-      ctx.fillStyle = padSpec.kind === "boost" ? "#ffcf3d" : "#3dff84";
+    for (const cell of this.path) {
+      if (!cell.pad) continue;
+      ctx.fillStyle = cell.pad === "boost" ? "#ffcf3d" : "#3dff84";
       ctx.beginPath();
-      ctx.arc(sx(p[0]), sy(p[2]), 5, 0, Math.PI * 2);
+      ctx.arc(cx(cell.c), cy(cell.r), cw * 0.16, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // start (lime) + end/cursor (pink)
+    // start (lime) + head (pink)
+    const s = this.path[0];
     ctx.fillStyle = "#d8f600";
     ctx.beginPath();
-    ctx.arc(sx(pts[0][0]), sy(pts[0][2]), 7, 0, Math.PI * 2);
+    ctx.arc(cx(s.c), cy(s.r), cw * 0.22, 0, Math.PI * 2);
     ctx.fill();
-    const last = pts[pts.length - 1];
-    ctx.fillStyle = "#f4044e";
-    ctx.beginPath();
-    ctx.arc(sx(last[0]), sy(last[2]), 6, 0, Math.PI * 2);
-    ctx.fill();
+    if (this.path.length > 1) {
+      ctx.fillStyle = "#f4044e";
+      ctx.beginPath();
+      ctx.arc(cx(hd.c), cy(hd.r), cw * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   // ---- input ---------------------------------------------------------------
 
-  private onKey(e: KeyboardEvent): void {
-    if (this.root.style.display === "none") return;
-    if (e.key === "Backspace" || e.key === "ArrowDown") {
-      e.preventDefault();
-      this.undo();
-      return;
-    }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      this.test();
-      return;
-    }
-    if (e.code === "KeyB") return void this.tagLast("boost");
-    if (e.code === "KeyJ") return void this.tagLast("jump");
-    const hit = PALETTE.find((p) => p.key === e.code || p.key === e.key);
-    if (hit) {
-      e.preventDefault();
-      this.add(hit.type);
-    }
+  private onCanvasClick(e: PointerEvent): void {
+    const rect = this.canvas.getBoundingClientRect();
+    const c = Math.floor((e.clientX - rect.left - this.fit.ox) / this.fit.cw);
+    const r = Math.floor((e.clientY - rect.top - this.fit.oy) / this.fit.cw);
+    if (c < 0 || r < 0 || c >= GRID || r >= GRID) return;
+    this.step(c, r);
   }
 
-  /** Polled from Game while this editor is open, so a controller can lay track:
-   * D-pad lays pieces, bumpers do hills, X/Y tag pads, START test-drives. */
+  private onKey(e: KeyboardEvent): void {
+    if (this.root.style.display === "none") return;
+    const h = this.head();
+    switch (e.key) {
+      case "ArrowUp":
+        e.preventDefault();
+        return this.step(h.c, h.r - 1);
+      case "ArrowDown":
+        e.preventDefault();
+        return this.step(h.c, h.r + 1);
+      case "ArrowLeft":
+        e.preventDefault();
+        return this.step(h.c - 1, h.r);
+      case "ArrowRight":
+        e.preventDefault();
+        return this.step(h.c + 1, h.r);
+      case "Backspace":
+        e.preventDefault();
+        return this.undo();
+      case "Enter":
+        e.preventDefault();
+        return this.test();
+    }
+    if (e.code === "KeyB") return this.tagHead("boost");
+    if (e.code === "KeyJ") return this.tagHead("jump");
+    if (e.code === "BracketRight") return this.lift(1);
+    if (e.code === "BracketLeft") return this.lift(-1);
+  }
+
+  /** Polled from Game while open: D-pad grows the track, bumpers change height,
+   * X/Y tag pads, START test-drives. */
   tickPad(): void {
     if (this.root.style.display === "none") return;
     const pads = navigator.getGamepads?.() ?? [];
@@ -403,16 +417,17 @@ export class SimpleEditor {
       };
       const prev = this.padPrev.get(i) ?? {};
       const edge = (k: string) => now[k] && !prev[k];
-      if (edge("up")) this.add("straight");
-      if (edge("left")) this.add("left");
-      if (edge("right")) this.add("right");
-      if (edge("down")) this.undo();
-      if (edge("rb")) this.add("hillUp");
-      if (edge("lb")) this.add("hillDown");
-      if (edge("x")) this.tagLast("boost");
-      if (edge("y")) this.tagLast("jump");
+      const h = this.head();
+      if (edge("up")) this.step(h.c, h.r - 1);
+      if (edge("down")) this.step(h.c, h.r + 1);
+      if (edge("left")) this.step(h.c - 1, h.r);
+      if (edge("right")) this.step(h.c + 1, h.r);
+      if (edge("rb")) this.lift(1);
+      if (edge("lb")) this.lift(-1);
+      if (edge("x")) this.tagHead("boost");
+      if (edge("y")) this.tagHead("jump");
       if (edge("start")) this.test();
-      if (edge("b")) this.onExit();
+      if (edge("b")) this.undo();
       this.padPrev.set(i, now);
     }
   }

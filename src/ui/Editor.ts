@@ -991,7 +991,7 @@ export class Editor {
     }
 
     this.panel.innerHTML = `
-      <h2 class="vd-ed-title">TRACK EDITOR</h2>
+      <h2 class="vd-ed-title">TRACK BUILDER<span class="vd-ed-mode"> · COMPLEX</span></h2>
       <div class="vd-ed-tools">
         ${toolBtn("select", "✋ Select")}
         ${toolBtn("point", "＋ Point")}

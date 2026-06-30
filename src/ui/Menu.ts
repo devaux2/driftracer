@@ -21,8 +21,8 @@ const MODES: GameMode[] = [
   { id: "solo", name: "SOLO", jp: "ソロ", icon: ICONS.quick, playable: true },
   { id: "mp", name: "MULTIPLAYER", jp: "マルチプレイヤー", icon: ICONS.mp, playable: true },
   { id: "garage", name: "GARAGE", jp: "ガレージ", icon: ICONS.garage, playable: true },
-  { id: "mapmaker", name: "MAP MAKER", jp: "マップメーカー", icon: ICONS.blocks, playable: true },
-  { id: "editor", name: "TRACK EDITOR", jp: "エディター", icon: ICONS.editor, playable: true },
+  { id: "mapmaker", name: "TRACK BUILDER", jp: "シンプル · SIMPLE", icon: ICONS.blocks, playable: true },
+  { id: "editor", name: "TRACK BUILDER", jp: "コンプレックス · COMPLEX", icon: ICONS.editor, playable: true },
   { id: "music", name: "MUSIC", jp: "ミュージック", icon: ICONS.music, playable: true },
 ];
 

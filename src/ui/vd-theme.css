@@ -2259,3 +2259,7 @@
 .vd-mm-btn.disabled { opacity: 0.4; pointer-events: none; }
 .vd-mm-info { font-size: clamp(0.66rem, 1.5vh, 0.9rem); letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.7); }
 .vd-mm-warn { color: var(--vd-orange); }
+
+/* map maker / simple builder — loop-closed confirmation + complex-editor mode tag */
+.vd-mm-ok { color: var(--vd-lime); font-weight: 700; }
+.vd-ed-mode { color: var(--vd-cyan); font-weight: 700; font-size: 0.7em; letter-spacing: 0.1em; }
