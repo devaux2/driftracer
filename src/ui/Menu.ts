@@ -21,7 +21,8 @@ const MODES: GameMode[] = [
   { id: "solo", name: "SOLO", jp: "ソロ", icon: ICONS.quick, playable: true },
   { id: "mp", name: "MULTIPLAYER", jp: "マルチプレイヤー", icon: ICONS.mp, playable: true },
   { id: "garage", name: "GARAGE", jp: "ガレージ", icon: ICONS.garage, playable: true },
-  { id: "mapmaker", name: "TRACK BUILDER", jp: "シンプル · SIMPLE", icon: ICONS.blocks, playable: true },
+  { id: "mapmaker", name: "TRACK BUILDER", jp: "シンプル · SIMPLE", icon: ICONS.track, playable: true },
+  { id: "tiles", name: "TRACK BUILDER", jp: "タイル · TILES", icon: ICONS.blocks, playable: true },
   { id: "editor", name: "TRACK BUILDER", jp: "コンプレックス · COMPLEX", icon: ICONS.editor, playable: true },
   { id: "music", name: "MUSIC", jp: "ミュージック", icon: ICONS.music, playable: true },
 ];
@@ -79,6 +80,7 @@ export class Menu {
     private onStart: (ship: ShipSpec, mode: string, useGyro: boolean, trackId: string) => void,
     private onEditor: () => void,
     private onSimpleEditor: () => void,
+    private onTileEditor: () => void,
     private audio: AudioManager,
     private onStartLocal: (entries: { scheme: Scheme; shipId: string }[], trackId: string) => void
   ) {
@@ -306,6 +308,8 @@ export class Menu {
       this.goto("garage");
     } else if (id === "mapmaker") {
       this.onSimpleEditor();
+    } else if (id === "tiles") {
+      this.onTileEditor();
     } else if (id === "editor") {
       this.onEditor();
     } else if (id === "music") {

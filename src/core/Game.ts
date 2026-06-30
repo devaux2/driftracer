@@ -31,6 +31,7 @@ import { loadRecord, saveRecord, type GhostFrame } from "../race/records";
 import { Results } from "../ui/Results";
 import { Editor } from "../ui/Editor";
 import { SimpleEditor } from "../ui/SimpleEditor";
+import { TileEditor } from "../ui/TileEditor";
 import { AudioManager } from "../audio/AudioManager";
 import { NowPlaying } from "../ui/NowPlaying";
 import { PauseMenu } from "../ui/PauseMenu";
@@ -88,8 +89,9 @@ export class Game {
   private ghost: Ghost;
   private editor: Editor;
   private simpleEditor: SimpleEditor;
+  private tileEditor: TileEditor;
   /** Which editor is currently open (so frame/exit/test route to the right one). */
-  private activeEditor: "pro" | "simple" = "pro";
+  private activeEditor: "pro" | "simple" | "tiles" = "pro";
   private audio: AudioManager;
   private nowPlaying: NowPlaying;
   private pauseMenu: PauseMenu;
@@ -161,6 +163,7 @@ export class Game {
         this.startRace(ship, mode === "time" ? "time" : "quick", useGyro, trackId),
       () => this.openEditor(),
       () => this.openSimpleEditor(),
+      () => this.openTileEditor(),
       this.audio,
       (entries, trackId) => this.startLocalRace(entries, trackId)
     );
@@ -174,6 +177,12 @@ export class Game {
     );
 
     this.simpleEditor = new SimpleEditor(
+      this.container,
+      (spec) => this.testTrack(spec),
+      () => this.exitEditor()
+    );
+
+    this.tileEditor = new TileEditor(
       this.container,
       (spec) => this.testTrack(spec),
       () => this.exitEditor()
@@ -656,7 +665,7 @@ export class Game {
     this.mode = "editor";
   }
 
-  /** Block/piece "Map Maker" — the controller-first builder. */
+  /** Grid path-painter builder (TRACK BUILDER · SIMPLE). */
   private openSimpleEditor(): void {
     this.menu.show(false);
     this.activeEditor = "simple";
@@ -664,8 +673,17 @@ export class Game {
     this.mode = "editor";
   }
 
+  /** Tony-Hawk-style tile placer (TRACK BUILDER · TILES). */
+  private openTileEditor(): void {
+    this.menu.show(false);
+    this.activeEditor = "tiles";
+    this.tileEditor.open();
+    this.mode = "editor";
+  }
+
   private exitEditor(): void {
     if (this.activeEditor === "simple") this.simpleEditor.close();
+    else if (this.activeEditor === "tiles") this.tileEditor.close();
     else this.editor.close();
     this.returnToMenu();
   }
@@ -681,6 +699,7 @@ export class Game {
    * Stays flagged as a test drive so every exit returns to the editor. */
   private testTrack(spec: TrackSpec): void {
     if (this.activeEditor === "simple") this.simpleEditor.close();
+    else if (this.activeEditor === "tiles") this.tileEditor.close();
     else this.editor.close();
     this.loadTrackSpec(spec);
     this.startRace(this.lastSpec, "time", this.lastUseGyro);
@@ -705,6 +724,7 @@ export class Game {
     this.ghost.hide();
     this.input.setTouchControlsVisible(false);
     if (this.activeEditor === "simple") this.simpleEditor.resume();
+    else if (this.activeEditor === "tiles") this.tileEditor.resume();
     else this.editor.resume();
   }
 
@@ -851,7 +871,9 @@ export class Game {
         this.handleMenuPad();
         this.menu.tick(); // per-device polling for the split-screen join lobby
       } else if (this.mode === "editor" && this.activeEditor === "simple") {
-        this.simpleEditor.tickPad(); // controller lays track in the map maker
+        this.simpleEditor.tickPad(); // controller lays track in the grid builder
+      } else if (this.mode === "editor" && this.activeEditor === "tiles") {
+        this.tileEditor.tickPad(); // controller places parts in the tile builder
       }
       // Keep the scene alive behind the menu. The editor draws its own opaque
       // overlay (with its OWN 3D engine), so the main scene there is invisible —

@@ -2263,3 +2263,18 @@
 /* map maker / simple builder — loop-closed confirmation + complex-editor mode tag */
 .vd-mm-ok { color: var(--vd-lime); font-weight: 700; }
 .vd-ed-mode { color: var(--vd-cyan); font-weight: 700; font-size: 0.7em; letter-spacing: 0.1em; }
+
+/* tile builder — "holding" part indicator overlaid on the park grid */
+.vd-mm-hold {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 0.6rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(8, 9, 14, 0.7);
+  border: 1px solid rgba(0, 215, 242, 0.3);
+  padding: 0.4rem 0.7rem;
+  pointer-events: none;
+}
+.vd-mm-hold b { color: var(--vd-cyan); }
