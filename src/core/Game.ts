@@ -30,6 +30,7 @@ import { Ghost } from "../race/Ghost";
 import { loadRecord, saveRecord, type GhostFrame } from "../race/records";
 import { Results } from "../ui/Results";
 import { Editor } from "../ui/Editor";
+import { SimpleEditor } from "../ui/SimpleEditor";
 import { AudioManager } from "../audio/AudioManager";
 import { NowPlaying } from "../ui/NowPlaying";
 import { PauseMenu } from "../ui/PauseMenu";
@@ -86,6 +87,9 @@ export class Game {
   private results: Results;
   private ghost: Ghost;
   private editor: Editor;
+  private simpleEditor: SimpleEditor;
+  /** Which editor is currently open (so frame/exit/test route to the right one). */
+  private activeEditor: "pro" | "simple" = "pro";
   private audio: AudioManager;
   private nowPlaying: NowPlaying;
   private pauseMenu: PauseMenu;
@@ -156,6 +160,7 @@ export class Game {
       (ship, mode, useGyro, trackId) =>
         this.startRace(ship, mode === "time" ? "time" : "quick", useGyro, trackId),
       () => this.openEditor(),
+      () => this.openSimpleEditor(),
       this.audio,
       (entries, trackId) => this.startLocalRace(entries, trackId)
     );
@@ -166,6 +171,12 @@ export class Game {
       () => this.exitEditor(),
       (spec) => void this.exportTrack(spec),
       (file) => this.importTrackFromFile(file)
+    );
+
+    this.simpleEditor = new SimpleEditor(
+      this.container,
+      (spec) => this.testTrack(spec),
+      () => this.exitEditor()
     );
 
     this.nowPlaying = new NowPlaying(this.container);
@@ -640,12 +651,22 @@ export class Game {
 
   private openEditor(): void {
     this.menu.show(false);
+    this.activeEditor = "pro";
     this.editor.open();
     this.mode = "editor";
   }
 
+  /** Block/piece "Map Maker" — the controller-first builder. */
+  private openSimpleEditor(): void {
+    this.menu.show(false);
+    this.activeEditor = "simple";
+    this.simpleEditor.open();
+    this.mode = "editor";
+  }
+
   private exitEditor(): void {
-    this.editor.close();
+    if (this.activeEditor === "simple") this.simpleEditor.close();
+    else this.editor.close();
     this.returnToMenu();
   }
 
@@ -659,7 +680,8 @@ export class Game {
   /** Test-drive the track currently in the editor: load it and run a solo lap.
    * Stays flagged as a test drive so every exit returns to the editor. */
   private testTrack(spec: TrackSpec): void {
-    this.editor.close();
+    if (this.activeEditor === "simple") this.simpleEditor.close();
+    else this.editor.close();
     this.loadTrackSpec(spec);
     this.startRace(this.lastSpec, "time", this.lastUseGyro);
     this.testDriving = true;
@@ -682,7 +704,8 @@ export class Game {
     this.results.hide();
     this.ghost.hide();
     this.input.setTouchControlsVisible(false);
-    this.editor.resume();
+    if (this.activeEditor === "simple") this.simpleEditor.resume();
+    else this.editor.resume();
   }
 
   /**
@@ -827,6 +850,8 @@ export class Game {
       if (this.mode === "menu") {
         this.handleMenuPad();
         this.menu.tick(); // per-device polling for the split-screen join lobby
+      } else if (this.mode === "editor" && this.activeEditor === "simple") {
+        this.simpleEditor.tickPad(); // controller lays track in the map maker
       }
       // Keep the scene alive behind the menu. The editor draws its own opaque
       // overlay (with its OWN 3D engine), so the main scene there is invisible —

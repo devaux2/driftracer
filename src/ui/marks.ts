@@ -29,6 +29,7 @@ export const ICONS: Record<string, string> = {
   editor: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><path d="M4 20 L4 16 L14.5 5.5 L18.5 9.5 L8 20 Z M14.5 5.5 L17 3 L21 7 L18.5 9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
   track: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><ellipse cx="12" cy="12" rx="9" ry="6" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="5" cy="12" r="1.7" fill="currentColor"/></svg>`,
   music: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><path d="M9 18 V6 L19 4 V16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="16.5" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>`,
+  blocks: `<svg viewBox="0 0 24 24" class="vd-ic" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="13.5" y="3" width="7.5" height="7.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="3" y="13.5" width="7.5" height="7.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M13.5 17.25 H21 M17.25 13.5 V21" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg>`,
 };
 
 /** Mini top-down outline of a track's centre-line, for the map picker. */
