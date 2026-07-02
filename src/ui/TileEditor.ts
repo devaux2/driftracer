@@ -5,30 +5,55 @@ import { logoMark } from "./marks";
 
 /**
  * TRACK BUILDER · TILES — a Tony-Hawk-Create-A-Park-style placer. A cursor roams
- * a grid; you hold a premade part (straight / corner), cycle the part with the
- * bumpers, rotate it in 90° steps with the triggers, and place/remove with A/B.
- * Parts snap to the grid; when they link edge-to-edge into one closed loop the
- * track is raceable. The drivable line is traced through the connected parts and
- * smoothed by the Catmull-Rom spline.
+ * a grid; you hold a premade part, cycle it with the bumpers, rotate it in 90°
+ * steps with the triggers, and place/remove with A/B. Parts link edge-to-edge;
+ * the drivable line is traced through the connected parts and, once they form one
+ * closed loop, smoothed by the Catmull-Rom spline.
+ *
+ * Parts:
+ *  - STRAIGHT / CORNER — flat shapes.
+ *  - RAMP — an elevation connector: it climbs one level toward its arrow (the
+ *    "high" edge). Travel the other way and it descends. Levels propagate around
+ *    the loop, so the loop must return to its start height to close.
+ *  - JUMP — a launch kicker (bakes a jump pad).
+ *  - BOOST — a boost strip (bakes a boost pad).
  *
  * Edge indices: 0=N 1=E 2=S 3=W. A part's two connection edges are its base
- * edges rotated by `rot` quarter-turns.
+ * edges rotated by `rot` quarter-turns; a RAMP's uphill ("high") edge is 0 (N)
+ * rotated likewise.
  */
 
-type PartType = "straight" | "corner";
+type PartType = "straight" | "corner" | "ramp" | "jump" | "boost";
 interface Tile {
   type: PartType;
   rot: number; // 0..3 quarter-turns
-  pad?: "boost" | "jump";
+}
+interface Step {
+  c: number;
+  r: number;
+  type: PartType;
+  rot: number;
+  outEdge: number; // edge we leave this tile through, in travel order
 }
 
 const GRID = 15;
 const CELL = 240;
+const LEVEL_H = 150; // world height per elevation level
 const HALF_WIDTH = 44;
-const TYPES: PartType[] = ["straight", "corner"];
+const TYPES: PartType[] = ["straight", "corner", "ramp", "jump", "boost"];
+const LABELS: Record<PartType, string> = {
+  straight: "STRAIGHT",
+  corner: "CORNER",
+  ramp: "RAMP",
+  jump: "JUMP",
+  boost: "BOOST",
+};
 const BASE_EDGES: Record<PartType, [number, number]> = {
-  straight: [0, 2], // N–S
-  corner: [0, 1], // N–E
+  straight: [0, 2],
+  corner: [0, 1],
+  ramp: [0, 2],
+  jump: [0, 2],
+  boost: [0, 2],
 };
 const EDGE_D: [number, number][] = [
   [0, -1], // N
@@ -48,8 +73,9 @@ export class TileEditor {
 
   private tiles = new Map<string, Tile>();
   private cur = { c: (GRID - 1) / 2, r: (GRID - 1) / 2 };
-  private current: { type: PartType; rot: number } = { type: "straight", rot: 0 };
+  private current: Tile = { type: "straight", rot: 0 };
   private spec: TrackSpec = this.emptySpec();
+  private levelOf = new Map<string, number>(); // centre level per tile when the loop is valid
   private fit = { ox: 0, oy: 0, cw: 1 };
 
   private padPrev = new Map<number, Record<string, boolean>>();
@@ -72,7 +98,7 @@ export class TileEditor {
             <span class="vd-brand-jp">タイル · TILES</span>
           </span>
         </div>
-        <p class="vd-mm-hint">Move the cursor with <b>↑↓←→ / D-pad</b>. <b>LB/RB</b> cycle the part · <b>LT/RT</b> rotate 90° · <b>A</b> place · <b>B</b> remove · <b>X/Y</b> boost/jump · <b>START</b> test. Link parts edge-to-edge into one closed loop.</p>
+        <p class="vd-mm-hint">Move the cursor <b>↑↓←→ / D-pad</b>. <b>LB/RB</b> cycle part · <b>LT/RT</b> rotate 90° · <b>A</b> place · <b>B</b> remove · <b>START</b> test. Link parts into one closed loop; <b>RAMP</b> climbs toward its arrow, so ramps must return to the start height.</p>
       </header>
 
       <div class="vd-mm-body">
@@ -93,8 +119,6 @@ export class TileEditor {
           <button class="vd-mm-btn vd-mm-rot">⟳ ROTATE</button>
           <button class="vd-mm-btn vd-mm-place">＋ PLACE</button>
           <button class="vd-mm-btn vd-mm-remove">✕ REMOVE</button>
-          <button class="vd-mm-btn vd-mm-boost">● BOOST</button>
-          <button class="vd-mm-btn vd-mm-jump">▲ JUMP</button>
           <button class="vd-mm-btn vd-mm-clear">CLEAR</button>
         </div>
         <div class="vd-mm-info"></div>
@@ -118,8 +142,6 @@ export class TileEditor {
     this.root.querySelector(".vd-mm-rot")!.addEventListener("click", () => this.rotate(1));
     this.root.querySelector(".vd-mm-place")!.addEventListener("click", () => this.place());
     this.root.querySelector(".vd-mm-remove")!.addEventListener("click", () => this.remove());
-    this.root.querySelector(".vd-mm-boost")!.addEventListener("click", () => this.tag("boost"));
-    this.root.querySelector(".vd-mm-jump")!.addEventListener("click", () => this.tag("jump"));
     this.root.querySelector(".vd-mm-clear")!.addEventListener("click", () => this.clear());
     this.root.querySelector(".vd-mm-test")!.addEventListener("click", () => this.test());
     this.root.querySelector(".vd-mm-save")!.addEventListener("click", () => this.save());
@@ -194,13 +216,6 @@ export class TileEditor {
     this.refresh();
   }
 
-  private tag(pad: "boost" | "jump"): void {
-    const t = this.tiles.get(key(this.cur.c, this.cur.r));
-    if (!t) return;
-    t.pad = t.pad === pad ? undefined : pad;
-    this.refresh();
-  }
-
   private clear(): void {
     this.tiles.clear();
     this.refresh();
@@ -219,21 +234,27 @@ export class TileEditor {
     window.setTimeout(() => (el.textContent = prev), 1100);
   }
 
-  // ---- connectivity --------------------------------------------------------
+  // ---- connectivity + elevation --------------------------------------------
 
   private edgesOf(t: Tile): [number, number] {
     const [a, b] = BASE_EDGES[t.type];
     return [(a + t.rot) % 4, (b + t.rot) % 4];
   }
 
-  /** Trace the parts as a single closed loop; returns the ordered cells or null
-   * if they don't form exactly one connected cycle covering every part. */
-  private loop(): { c: number; r: number; pad?: "boost" | "jump" }[] | null {
+  /** A ramp's uphill edge (base N=0, rotated). */
+  private highEdge(t: Tile): number {
+    return t.rot % 4;
+  }
+
+  /** Trace the parts as a single closed loop; returns the ordered steps (with
+   * the exit edge of each) or null if they don't form one connected cycle
+   * covering every part. */
+  private loop(): Step[] | null {
     if (this.tiles.size < 4) return null;
     const firstKey = this.tiles.keys().next().value as string;
     const [sc0, sr0] = firstKey.split(",").map(Number);
     const start = this.tiles.get(firstKey)!;
-    const order: { c: number; r: number; pad?: "boost" | "jump" }[] = [];
+    const order: Step[] = [];
     let c = sc0,
       r = sr0,
       outEdge = this.edgesOf(start)[0];
@@ -241,7 +262,7 @@ export class TileEditor {
     for (let step = 0; step < this.tiles.size + 1; step++) {
       const t = this.tiles.get(key(c, r));
       if (!t) return null;
-      order.push({ c, r, pad: t.pad });
+      order.push({ c, r, type: t.type, rot: t.rot, outEdge });
       const [dc, dr] = EDGE_D[outEdge];
       const nc = c + dc,
         nr = r + dr;
@@ -261,30 +282,27 @@ export class TileEditor {
     return null;
   }
 
-  private cellWorld(c: number, r: number): { x: number; z: number } {
-    return { x: (c - (GRID - 1) / 2) * CELL, z: (r - (GRID - 1) / 2) * CELL };
+  /** Propagate elevation levels around the loop. A ramp exiting toward its high
+   * edge climbs +1, otherwise descends -1; its centre sits at the mid-level.
+   * `net` is the level after the whole loop — it must be 0 to close cleanly. */
+  private levels(order: Step[]): { centre: number[]; net: number } {
+    let level = 0;
+    const centre: number[] = [];
+    for (const s of order) {
+      if (s.type === "ramp") {
+        const high = s.rot % 4;
+        const exit = level + (s.outEdge === high ? 1 : -1);
+        centre.push((level + exit) / 2);
+        level = exit;
+      } else {
+        centre.push(level);
+      }
+    }
+    return { centre, net: level };
   }
 
-  private generate(loop: { c: number; r: number; pad?: "boost" | "jump" }[] | null): TrackSpec {
-    const cells = loop ?? [...this.tiles.keys()].map((k) => {
-      const [c, r] = k.split(",").map(Number);
-      return { c, r, pad: this.tiles.get(k)!.pad };
-    });
-    const pts: ControlPoint[] = [];
-    const pads: PadSpec[] = [];
-    cells.forEach((cell, i) => {
-      const w = this.cellWorld(cell.c, cell.r);
-      pts.push([Math.round(w.x), 0, Math.round(w.z)]);
-      if (cell.pad) {
-        const t = i / cells.length;
-        pads.push(
-          cell.pad === "jump"
-            ? { kind: "jump", t, offset: 0, power: 1.4 }
-            : { kind: "boost", t, offset: 0 }
-        );
-      }
-    });
-    return { id: "custom", name: "CUSTOM TRACK", roadHalfWidth: HALF_WIDTH, points: pts, pads };
+  private cellWorld(c: number, r: number): { x: number; z: number } {
+    return { x: (c - (GRID - 1) / 2) * CELL, z: (r - (GRID - 1) / 2) * CELL };
   }
 
   private emptySpec(): TrackSpec {
@@ -292,25 +310,44 @@ export class TileEditor {
   }
 
   private refresh(): void {
-    const loop = this.loop();
-    this.spec = loop ? this.generate(loop) : this.emptySpec();
-    if (this.spec.points.length >= 4) this.preview3d.setSpec(this.spec);
-    const valid = !!loop;
+    const order = this.loop();
+    this.levelOf.clear();
+    let valid = false;
+    let netMsg = "";
+    if (order) {
+      const { centre, net } = this.levels(order);
+      if (net === 0) {
+        valid = true;
+        const pts: ControlPoint[] = [];
+        const pads: PadSpec[] = [];
+        order.forEach((s, i) => {
+          const w = this.cellWorld(s.c, s.r);
+          pts.push([Math.round(w.x), Math.round(centre[i] * LEVEL_H), Math.round(w.z)]);
+          this.levelOf.set(key(s.c, s.r), centre[i]);
+          const t = i / order.length;
+          if (s.type === "jump") pads.push({ kind: "jump", t, offset: 0, power: 1.5 });
+          else if (s.type === "boost") pads.push({ kind: "boost", t, offset: 0 });
+        });
+        this.spec = { id: "custom", name: "CUSTOM TRACK", roadHalfWidth: HALF_WIDTH, points: pts, pads };
+        this.preview3d.setSpec(this.spec);
+      } else {
+        this.spec = this.emptySpec();
+        netMsg = ` · <span class="vd-mm-warn">ramps off by ${net > 0 ? "+" : ""}${net} level — return to start height</span>`;
+      }
+    } else {
+      this.spec = this.emptySpec();
+    }
+
     this.info.innerHTML =
       `${this.tiles.size} PARTS · ` +
-      (valid ? `<span class="vd-mm-ok">LOOP OK ✓</span>` : `<span class="vd-mm-warn">link into one closed loop</span>`);
+      (valid ? `<span class="vd-mm-ok">LOOP OK ✓</span>` : `<span class="vd-mm-warn">link into one closed loop</span>${netMsg}`);
     this.root.querySelector(".vd-mm-test")!.classList.toggle("disabled", !valid);
     this.root.querySelector(".vd-mm-save")!.classList.toggle("disabled", !valid);
-    this.hold.innerHTML = `HOLDING: <b>${this.current.type.toUpperCase()}</b> · ${this.current.rot * 90}°`;
+    this.hold.innerHTML = `HOLDING: <b>${LABELS[this.current.type]}</b> · ${this.current.rot * 90}°`;
     this.draw();
   }
 
   // ---- drawing -------------------------------------------------------------
-
-  /** Edge-midpoint offsets (in cell-widths) for drawing a part's two arms. */
-  private armEnds(edges: [number, number]): [number, number][] {
-    return edges.map((e) => [EDGE_D[e][0] * 0.5, EDGE_D[e][1] * 0.5]);
-  }
 
   private drawPart(cx: number, cy: number, cw: number, edges: [number, number], color: string, lw: number): void {
     const ctx = this.ctx;
@@ -318,11 +355,10 @@ export class TileEditor {
     ctx.lineWidth = lw;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    const arms = this.armEnds(edges);
     ctx.beginPath();
-    ctx.moveTo(cx + arms[0][0] * cw, cy + arms[0][1] * cw);
+    ctx.moveTo(cx + EDGE_D[edges[0]][0] * 0.5 * cw, cy + EDGE_D[edges[0]][1] * 0.5 * cw);
     ctx.lineTo(cx, cy);
-    ctx.lineTo(cx + arms[1][0] * cw, cy + arms[1][1] * cw);
+    ctx.lineTo(cx + EDGE_D[edges[1]][0] * 0.5 * cw, cy + EDGE_D[edges[1]][1] * 0.5 * cw);
     ctx.stroke();
   }
 
@@ -347,26 +383,53 @@ export class TileEditor {
         ctx.fill();
       }
 
-    // placed parts (ribbon + cyan centre)
     for (const [k, t] of this.tiles) {
       const [c, r] = k.split(",").map(Number);
       const edges = this.edgesOf(t);
-      this.drawPart(cx(c), cy(r), cw, edges, "rgba(255,255,255,0.18)", Math.max(6, cw * 0.5));
+      // tint higher tiles cyan-ward when the loop's levels are known
+      const lvl = this.levelOf.get(k);
+      const base = lvl !== undefined && lvl > 0 ? `rgba(0,215,242,${Math.min(0.4, 0.14 + lvl * 0.12)})` : "rgba(255,255,255,0.18)";
+      this.drawPart(cx(c), cy(r), cw, edges, base, Math.max(6, cw * 0.5));
       this.drawPart(cx(c), cy(r), cw, edges, "rgba(0,215,242,0.75)", 1.5);
-      if (t.pad) {
-        ctx.fillStyle = t.pad === "boost" ? "#ffcf3d" : "#3dff84";
+
+      if (t.type === "ramp") {
+        // uphill arrow toward the high edge
+        const hi = this.highEdge(t);
+        const dx = EDGE_D[hi][0],
+          dy = EDGE_D[hi][1];
+        const tx = cx(c) + dx * cw * 0.34,
+          ty = cy(r) + dy * cw * 0.34;
+        ctx.strokeStyle = "#d8f600";
+        ctx.fillStyle = "#d8f600";
+        ctx.lineWidth = 2;
+        const ah = cw * 0.14;
+        const ang = Math.atan2(dy, dx);
         ctx.beginPath();
-        ctx.arc(cx(c), cy(r), cw * 0.15, 0, Math.PI * 2);
+        ctx.moveTo(tx, ty);
+        ctx.lineTo(tx - ah * Math.cos(ang - 0.5), ty - ah * Math.sin(ang - 0.5));
+        ctx.lineTo(tx - ah * Math.cos(ang + 0.5), ty - ah * Math.sin(ang + 0.5));
+        ctx.closePath();
         ctx.fill();
+      } else if (t.type === "jump" || t.type === "boost") {
+        ctx.fillStyle = t.type === "jump" ? "#3dff84" : "#ffcf3d";
+        ctx.beginPath();
+        ctx.arc(cx(c), cy(r), cw * 0.16, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (lvl !== undefined && lvl !== 0) {
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.font = `${Math.max(8, cw * 0.26)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${lvl > 0 ? "+" : ""}${lvl}`, cx(c), cy(r) + cw * 0.3);
       }
     }
 
-    // ghost of the held part at the cursor
-    const ghostEdges = this.edgesOf({ type: this.current.type, rot: this.current.rot });
+    // ghost of the held part
+    const ghostEdges = this.edgesOf(this.current);
     this.drawPart(cx(this.cur.c), cy(this.cur.r), cw, ghostEdges, "rgba(244,4,78,0.7)", Math.max(3, cw * 0.22));
 
     // cursor box
-    ctx.strokeStyle = "var(--vd-pink)";
     ctx.strokeStyle = "#f4044e";
     ctx.lineWidth = 2;
     ctx.strokeRect(ox + this.cur.c * cw + 1.5, oy + this.cur.r * cw + 1.5, cw - 3, cw - 3);
@@ -381,7 +444,6 @@ export class TileEditor {
     if (c < 0 || r < 0 || c >= GRID || r >= GRID) return;
     this.cur.c = c;
     this.cur.r = r;
-    // click an empty cell to place; click an occupied cell to remove
     if (this.tiles.has(key(c, r))) this.remove();
     else this.place();
   }
@@ -412,16 +474,13 @@ export class TileEditor {
     if (e.code === "KeyE") return this.cycleType(1);
     if (e.code === "KeyZ") return this.rotate(-1);
     if (e.code === "KeyX") return this.rotate(1);
-    if (e.code === "KeyB") return this.tag("boost");
-    if (e.code === "KeyJ") return this.tag("jump");
     if (e.code === "Space") {
       e.preventDefault();
       this.test();
     }
   }
 
-  /** Polled from Game while open: D-pad moves cursor, bumpers cycle part,
-   * triggers rotate, A place, B remove, X/Y pads, START test. */
+  /** Polled from Game while open. */
   tickPad(): void {
     if (this.root.style.display === "none") return;
     const pads = navigator.getGamepads?.() ?? [];
@@ -441,8 +500,6 @@ export class TileEditor {
         rt: (gp.buttons[7]?.value ?? 0) > 0.5,
         a: !!gp.buttons[0]?.pressed,
         b: !!gp.buttons[1]?.pressed,
-        x: !!gp.buttons[2]?.pressed,
-        y: !!gp.buttons[3]?.pressed,
         start: !!gp.buttons[9]?.pressed,
       };
       const prev = this.padPrev.get(i) ?? {};
@@ -457,8 +514,6 @@ export class TileEditor {
       if (edge("rt")) this.rotate(1);
       if (edge("a")) this.place();
       if (edge("b")) this.remove();
-      if (edge("x")) this.tag("boost");
-      if (edge("y")) this.tag("jump");
       if (edge("start")) this.test();
       this.padPrev.set(i, now);
     }
