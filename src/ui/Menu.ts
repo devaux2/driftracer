@@ -5,7 +5,7 @@ import { ShipPreview } from "./ShipPreview";
 import type { AudioManager, Pool } from "../audio/AudioManager";
 import { schemeLabel, type Scheme } from "../input/PlayerInput";
 
-type Screen = "main" | "garage" | "tracks" | "music" | "local" | "mp" | "solo";
+type Screen = "main" | "garage" | "tracks" | "music" | "local" | "mp" | "solo" | "build";
 
 interface GameMode {
   id: string;
@@ -21,9 +21,7 @@ const MODES: GameMode[] = [
   { id: "solo", name: "SOLO", jp: "ソロ", icon: ICONS.quick, playable: true },
   { id: "mp", name: "MULTIPLAYER", jp: "マルチプレイヤー", icon: ICONS.mp, playable: true },
   { id: "garage", name: "GARAGE", jp: "ガレージ", icon: ICONS.garage, playable: true },
-  { id: "mapmaker", name: "TRACK BUILDER", jp: "シンプル · SIMPLE", icon: ICONS.track, playable: true },
-  { id: "tiles", name: "TRACK BUILDER", jp: "タイル · TILES", icon: ICONS.blocks, playable: true },
-  { id: "editor", name: "TRACK BUILDER", jp: "コンプレックス · COMPLEX", icon: ICONS.editor, playable: true },
+  { id: "build", name: "TRACK BUILDER", jp: "トラックビルダー", icon: ICONS.editor, playable: true },
   { id: "music", name: "MUSIC", jp: "ミュージック", icon: ICONS.music, playable: true },
 ];
 
@@ -33,6 +31,13 @@ const SOLO_MODES: GameMode[] = [
   { id: "time", name: "TIME ATTACK", jp: "タイムアタック", icon: ICONS.time, playable: true },
   { id: "tracks", name: "SELECT TRACK", jp: "コース選択", icon: ICONS.track, playable: true },
   { id: "gp", name: "GRAND PRIX", jp: "グランプリ", icon: ICONS.gp, playable: false },
+];
+
+/** Track-builder submenu — three editor modes of the one tool. */
+const BUILD_MODES: GameMode[] = [
+  { id: "mapmaker", name: "SIMPLE", jp: "シンプル · グリッド", icon: ICONS.track, playable: true },
+  { id: "tiles", name: "TILES", jp: "タイル · パーツ", icon: ICONS.blocks, playable: true },
+  { id: "editor", name: "COMPLEX", jp: "コンプレックス · フリーフォーム", icon: ICONS.editor, playable: true },
 ];
 
 function hex(c: ShipSpec): string {
@@ -61,6 +66,8 @@ export class Menu {
   private focus = "solo";
   /** Cursor on the SOLO submenu (index into SOLO_MODES). */
   private soloFocus = 0;
+  /** Cursor on the TRACK BUILDER submenu (index into BUILD_MODES). */
+  private buildFocus = 0;
   private useGyro = false;
   /** Gamepad cursor on the music screen (0 = skip button, 1.. = track rows). */
   private musicFocus = 0;
@@ -114,6 +121,7 @@ export class Menu {
     else if (this.screen === "music") this.renderMusic();
     else if (this.screen === "local") this.renderLocal();
     else if (this.screen === "mp") this.renderMp();
+    else if (this.screen === "build") this.renderBuild();
     else this.renderSolo();
     // Play the screen-enter animation only on an actual screen change, not on
     // the frequent in-screen re-renders (cursor moves, ship cycles, lobby ticks).
@@ -306,12 +314,9 @@ export class Menu {
       this.goto("mp");
     } else if (id === "garage") {
       this.goto("garage");
-    } else if (id === "mapmaker") {
-      this.onSimpleEditor();
-    } else if (id === "tiles") {
-      this.onTileEditor();
-    } else if (id === "editor") {
-      this.onEditor();
+    } else if (id === "build") {
+      this.buildFocus = 0;
+      this.goto("build");
     } else if (id === "music") {
       this.musicFocus = 0;
       this.goto("music");
@@ -324,6 +329,13 @@ export class Menu {
     else if (id === "quick" || id === "time") {
       this.onStart(getShipById(this.selectedShipId), id, this.useGyro, this.selectedTrackId);
     }
+  }
+
+  /** Act on a TRACK BUILDER submenu row: open the chosen editor mode. */
+  private buildActivate(id: string): void {
+    if (id === "mapmaker") this.onSimpleEditor();
+    else if (id === "tiles") this.onTileEditor();
+    else if (id === "editor") this.onEditor();
   }
 
   /** Move the main-menu cursor by `dir` (-1 up / +1 down), wrapping. */
@@ -354,6 +366,17 @@ export class Menu {
         this.renderSolo();
       }
       if (nav.confirm) this.soloActivate(SOLO_MODES[this.soloFocus].id);
+      if (nav.back) this.goto("main");
+    } else if (this.screen === "build") {
+      if (nav.up) {
+        this.buildFocus = (this.buildFocus - 1 + BUILD_MODES.length) % BUILD_MODES.length;
+        this.renderBuild();
+      }
+      if (nav.down) {
+        this.buildFocus = (this.buildFocus + 1) % BUILD_MODES.length;
+        this.renderBuild();
+      }
+      if (nav.confirm) this.buildActivate(BUILD_MODES[this.buildFocus].id);
       if (nav.back) this.goto("main");
     } else if (this.screen === "tracks") {
       if (nav.left) this.cycleTrack(-1);
@@ -415,6 +438,46 @@ export class Menu {
 
     this.content.querySelectorAll<HTMLButtonElement>(".vd-mode").forEach((b) => {
       b.addEventListener("click", () => this.soloActivate(b.dataset.solo!));
+    });
+    this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
+  }
+
+  // ---- track builder submenu (simple / tiles / complex) --------------------
+
+  private renderBuild(): void {
+    this.root.className = "vd-menu overlay vd-screen-build";
+    const rows = BUILD_MODES.map((m, i) => `
+        <button class="vd-mode ${this.buildFocus === i ? "sel" : ""}" data-build="${m.id}">
+          <span class="vd-ic">${m.icon}</span>
+          <span>
+            <span class="vd-mode-name">${m.name}</span>
+            <span class="vd-mode-jp">${m.jp}</span>
+          </span>
+        </button>`).join("");
+
+    this.content.innerHTML = `
+      <div class="vd-shell">
+        ${this.plusMarks()}
+        ${this.edgeRails("SELECT MODE")}
+        <header class="vd-topbar">
+          <div class="vd-brand vd-brand--garage">
+            <span class="vd-badge">${logoMark()}</span>
+            <span>
+              <span class="vd-brand-name">TRACK BUILDER</span>
+              <span class="vd-brand-jp">トラックビルダー</span>
+            </span>
+          </div>
+        </header>
+
+        <div class="vd-mp-body">${rows}</div>
+
+        <footer class="vd-botbar">
+          <button class="vd-act back-act"><span class="ring">✕</span> BACK</button>
+        </footer>
+      </div>`;
+
+    this.content.querySelectorAll<HTMLButtonElement>(".vd-mode").forEach((b) => {
+      b.addEventListener("click", () => this.buildActivate(b.dataset.build!));
     });
     this.content.querySelector<HTMLButtonElement>(".back-act")!.addEventListener("click", () => this.goto("main"));
   }
